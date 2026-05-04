@@ -1023,21 +1023,57 @@ abort:
 struct rotate_thread_t {
   explicit rotate_thread_t(uint no) : thread_no(no) {}
 
-  uint thread_no;
   bool first = true;              /*!< is position before first space */
-  space_list_t::iterator space
-    = fil_system.space_list.end();/*!< current space or .end() */
-  uint32_t offset = 0;            /*!< current page number */
-  ulint batch = 0;                /*!< #pages to rotate */
-  uint min_key_version_found = 0; /*!< min key version found but not rotated */
-  lsn_t end_lsn = 0;              /*!< max lsn when rotating this space */
 
+  /** Set when iterating default_encrypt_list. Used to determine
+  wake behavior:true = wake other threads for cooperative retry,
+  false = timed wait for fil_system.space_list iteration. */
+  bool default_encrypt_list= true;
+
+  /** Number of consecutive timed waits that resulted in timeout (no signal).
+  Used for exponential backoff when iterating fil_system.space_list: after
+  5 timeouts (~135s total: 5+10+20+40+60), switches to indefinite wait to
+  avoid wasting CPU when spaces remain unavailable. Reset to 0 when woken
+  by signal or when work is found. */
+  uint8_t timed_wait_count= 0;
+
+  /** Current sleep timeout in milliseconds for timed wait. Starts at 5000ms
+  (5 seconds) and doubles on each timeout up to 60000ms (60 seconds) maximum.
+  Used only when iterating fil_system.space_list to periodically recheck for
+  spaces that become available after DDL operations complete. Reset to 5000ms
+  when woken by signal or when work is found. */
+  uint16_t sleep_timeout_ms= 5000;
+
+  uint thread_no;
+  uint32_t offset = 0;            /*!< current page number */
+  uint min_key_version_found = 0; /*!< min key version found but not rotated */
   uint estimated_max_iops = 20;/*!< estimation of max iops */
   uint allocated_iops = 0;     /*!< allocated iops */
+  space_list_t::iterator space
+    = fil_system.space_list.end();/*!< current space or .end() */
+  ulint batch = 0;                /*!< #pages to rotate */
+  lsn_t end_lsn = 0;              /*!< max lsn when rotating this space */
+
   ulint cnt_waited = 0;	       /*!< #times waited during this slot */
   uintmax_t sum_waited_us = 0; /*!< wait time during this slot */
+  fil_crypt_stat_t crypt_stat; // statistics
 
-	fil_crypt_stat_t crypt_stat; // statistics
+  /** Increase sleep timeout for exponential backoff.
+  Doubles the current timeout up to a maximum of 60 seconds. Called when
+  timed wait expires without being woken by a signal, indicating no work
+  became available during the timeout period. */
+  void increase_sleep_timeout() {
+	sleep_timeout_ms = std::min<uint16_t>(sleep_timeout_ms * 2, 60000);
+  }
+
+  /** Reset sleep timeout to initial value.
+  Called when thread is woken by signal (config change, new tablespace)
+  or when work is found, ensuring responsive rechecking when activity
+  resumes. */
+  void reset_sleep_timeout() {
+	sleep_timeout_ms = 5000;
+	timed_wait_count = 0;
+  }
 
 	/** @return whether this thread should terminate */
 	bool should_shutdown() const {
@@ -1055,6 +1091,55 @@ struct rotate_thread_t {
 		}
 		ut_ad(0);
 		return true;
+	}
+
+
+	/** Wait for encryption work to become available.
+	For fil_system.space_list iteration: Uses timed wait with
+	exponential backoff (5s -> 10s -> 20s -> 40s -> 60s,
+	max 5 attempts) to periodically recheck for tablespaces
+	that become available after DDL operations complete.
+	After 5 timeouts, switches to indefinite wait to avoid
+	CPU waste.
+
+	For default_encrypt_list iteration: Uses indefinite wait
+	since nullptr return already indicates temporarily
+	unacquirable spaces and wakes other threads.
+
+	Timeout resets to 5s when woken by signal (config change,
+	new tablespace) or when work is found.
+
+	@param recheck  If true, skip waiting */
+	void wait_for_work(bool recheck) {
+
+		if (recheck || should_shutdown()) {
+			return;
+		}
+
+		if (space == fil_system.space_list.end()) {
+			if (timed_wait_count > 5) {
+				reset_sleep_timeout();
+				timed_wait_count = 0;
+				goto indefinite_wait;
+			}
+
+			struct timespec abstime;
+			set_timespec(abstime, sleep_timeout_ms / 1000);
+			int ret = my_cond_timedwait(&fil_crypt_threads_cond,
+						    &fil_crypt_threads_mutex.m_mutex,
+						    &abstime);
+			if (ret == ETIMEDOUT) {
+				increase_sleep_timeout();
+				timed_wait_count++;
+			} else {
+				reset_sleep_timeout();
+				timed_wait_count= 0;
+			}
+		} else {
+indefinite_wait:
+			my_cond_wait(&fil_crypt_threads_cond,
+				     &fil_crypt_threads_mutex.m_mutex);
+		}
 	}
 };
 
@@ -1422,20 +1507,33 @@ inline fil_space_t *fil_system_t::default_encrypt_next(fil_space_t *space,
   return nullptr;
 }
 
-/** Determine the next tablespace for encryption key rotation.
-@param space    current tablespace (nullptr to start from the beginning)
-@param recheck  whether the removal condition needs to be rechecked after
-encryption parameters were changed
-@param encrypt  expected state of innodb_encrypt_tables
-@return the next tablespace
-@retval fil_system.temp_space if there is no work to do
-@retval end() upon reaching the end of the iteration */
+/** Get the next tablespace for encryption key rotation
+@param  space    Current space iterator, or .end() to start from beginning
+@param  recheck  Skip removing processed spaces from default_encrypt_list
+@param  encrypt  Whether encryption is enabled
+@param  default_encrypt_list  set to true when default_encrypt_list
+                              has unacquirable spaces (signals need
+                              to wake other threads); false for
+                              fil_system.space_list iteration
+@return iterator to next space to process
+Return values depend on which list is being iterated:
+
+When using default_encrypt_list (fil_crypt_must_default_encrypt() == true):
+- Valid space: Space needs processing
+- temp_space: List is empty, no work available
+- nullptr: Spaces exist in list but none are acquirable (STOPPING/CLOSING)
+
+When using space_list (fil_crypt_must_default_encrypt() == false):
+- Valid space: Space needs processing
+- space_list.end(): Reached end of list */
 space_list_t::iterator fil_space_t::next(space_list_t::iterator space,
-                                         bool recheck, bool encrypt) noexcept
+                                         bool recheck, bool encrypt,
+					 bool *default_encrypt_list) noexcept
 {
   mysql_mutex_lock(&fil_system.mutex);
 
-  if (fil_crypt_must_default_encrypt())
+  *default_encrypt_list= fil_crypt_must_default_encrypt();
+  if (*default_encrypt_list)
   {
     fil_space_t *next_space=
       fil_system.default_encrypt_next(space == fil_system.space_list.end()
@@ -1471,52 +1569,52 @@ space_list_t::iterator fil_space_t::next(space_list_t::iterator space,
   return space;
 }
 
-/** Search for a space needing rotation
-@param[in,out]	key_state	Key state
-@param[in,out]	state		Rotation state
-@param[in,out]	recheck		recheck of the tablespace is needed or
-				still encryption thread does write page 0
-@return whether the thread should keep running */
+/** Find a space that needs rotation
+@param  key_state   Key state
+@param  state       Key rotation state
+@param  recheck     Needs recheck?
+@return true if space to rotate found (or reached end of list),
+false if shutdown
+On return, state->space indicates the result:
+- Valid space iterator: Space needs rotation and is ready to process
+- fil_system.temp_space: default_encrypt_list is empty (no work exists)
+- fil_system.space_list.end(): Reached end of iteration
+  * For default_encrypt_list: Spaces exist but none are acquirable
+    (state->default_encrypt_list will be true)
+  * For fil_system.space_list: All spaces checked (ambiguous - could be
+    no work or temporarily unacquirable spaces)
+
+The state->default_encrypt_list flag distinguishes between the two .end()
+cases to enable different wake and wait strategies in the caller. */
 static bool fil_crypt_find_space_to_rotate(
 	key_state_t*		key_state,
 	rotate_thread_t*	state,
 	bool*			recheck) noexcept
 {
-	/* we need iops to start rotating */
-	do {
-		if (state->should_shutdown()) {
-			if (state->space != fil_system.space_list.end()) {
-				state->space->release();
-				state->space = fil_system.space_list.end();
-			}
-			return false;
-		}
-	} while (!fil_crypt_alloc_iops(state));
-
 	if (state->first) {
 		state->first = false;
-		if (state->space != fil_system.space_list.end()) {
+		if (state->space != fil_system.space_list.end() &&
+		    state->space !=
+		      space_list_t::iterator(fil_system.temp_space)) {
 			state->space->release();
 		}
 		state->space = fil_system.space_list.end();
 	}
 
 	state->space = fil_space_t::next(state->space, *recheck,
-					 key_state->key_version != 0);
+					 key_state->key_version != 0,
+					 &state->default_encrypt_list);
 
-	bool wake = true;
 	while (state->space != fil_system.space_list.end()) {
 		if (state->space
 			== space_list_t::iterator(fil_system.temp_space)) {
-			wake = false;
-			goto done;
+			return !state->should_shutdown();
 		}
 
 		if (state->should_shutdown()) {
 			state->space->release();
-done:
 			state->space = fil_system.space_list.end();
-			break;
+			return false;
 		}
 
 		mysql_mutex_unlock(&fil_crypt_threads_mutex);
@@ -1537,12 +1635,11 @@ done:
 		}
 
 		state->space = fil_space_t::next(state->space, *recheck,
-						 key_state->key_version != 0);
+						 key_state->key_version != 0,
+						 &state->default_encrypt_list);
 		mysql_mutex_lock(&fil_crypt_threads_mutex);
 	}
 
-	/* no work to do; release our allocation of I/O capacity */
-	fil_crypt_return_iops(state, wake);
 	return true;
 }
 
@@ -2029,27 +2126,54 @@ static void fil_crypt_thread()
 		bool recheck = false;
 
 wait_for_work:
-		if (!recheck && !thr.should_shutdown()) {
-			/* wait for key state changes
-			* i.e either new key version of change or
-			* new rotate_key_age */
-			my_cond_wait(&fil_crypt_threads_cond,
-				     &fil_crypt_threads_mutex.m_mutex);
-		}
+		thr.wait_for_work(recheck);
 
 		recheck = false;
 		thr.first = true;      // restart from first tablespace
-
 		key_state_t new_state;
 
 		/* iterate all spaces searching for those needing rotation */
 		while (fil_crypt_find_space_to_rotate(&new_state, &thr,
 						      &recheck)) {
+
 			if (thr.space == fil_system.space_list.end()) {
+				/* When iterating fil_system.space_list,
+				reaching .end(), it could mean all spaces
+				are encrypted, or some spaces were temporarily
+                                unacquirable (CLOSING flag, DDL in progress).
+
+				For default_encrypt_list: Spaces exist but
+				none are acquirable. Wake other threads
+				(wake=true) to retry.
+
+				For fil_system.space_list: Use timed wait
+				(wait_for_work()) to
+				periodically recheck for spaces that become
+				available. */
+				if (thr.default_encrypt_list) {
+					pthread_cond_broadcast(
+						&fil_crypt_threads_cond);
+				}
+
+				goto wait_for_work;
+			}
+
+			if (thr.space ==
+				space_list_t::iterator(fil_system.temp_space)) {
+				/* temp_space : No work exists, don't
+				wake others */
 				goto wait_for_work;
 			}
 
 			/* we found a space to rotate */
+			do {
+				if (thr.should_shutdown()) {
+					thr.space->release();
+					thr.space = fil_system.space_list.end();
+					goto func_exit;
+				}
+			} while (!fil_crypt_alloc_iops(&thr));
+
 			mysql_mutex_unlock(&fil_crypt_threads_mutex);
 			fil_crypt_start_rotate_space(&new_state, &thr);
 
@@ -2084,14 +2208,8 @@ wait_for_work:
 			/* release iops */
 			fil_crypt_return_iops(&thr);
 		}
-
-		if (thr.space != fil_system.space_list.end()) {
-			thr.space->release();
-			thr.space = fil_system.space_list.end();
-		}
 	}
-
-	fil_crypt_return_iops(&thr);
+func_exit:
 	srv_n_fil_crypt_threads_started--;
 	pthread_cond_broadcast(&fil_crypt_cond);
 	mysql_mutex_unlock(&fil_crypt_threads_mutex);
