@@ -641,6 +641,9 @@ public:
   bool modifies_data() const
   { return m_flags & MODIFIES_DATA; }
 
+  bool contains_dynamic_sql() const
+  {  return m_flags & CONTAINS_DYNAMIC_SQL; }
+
   inline uint instructions()
   { return (uint)m_instr.elements; }
 
@@ -943,8 +946,12 @@ public:
   */
   bool is_not_allowed_in_function(const char *where)
   {
-    if (m_flags & CONTAINS_DYNAMIC_SQL)
+    if (!(m_chistics.daccess & SP_CONTAINS_SQL) &&
+        (m_flags & CONTAINS_DYNAMIC_SQL))
+    {
       my_error(ER_STMT_NOT_ALLOWED_IN_SF_OR_TRG, MYF(0), "Dynamic SQL");
+      return true;
+    }
     else if (m_flags & MULTI_RESULTS)
       my_error(ER_SP_NO_RETSET, MYF(0), where);
     else if (m_flags & HAS_SET_AUTOCOMMIT_STMT)
@@ -957,7 +964,7 @@ public:
       my_error(ER_STMT_NOT_ALLOWED_IN_SF_OR_TRG, MYF(0), "FLUSH");
 
     return MY_TEST(m_flags &
-                  (CONTAINS_DYNAMIC_SQL | MULTI_RESULTS |
+                  (MULTI_RESULTS |
                    HAS_SET_AUTOCOMMIT_STMT | HAS_COMMIT_OR_ROLLBACK |
                    HAS_SQLCOM_RESET | HAS_SQLCOM_FLUSH));
   }

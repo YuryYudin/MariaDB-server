@@ -3159,8 +3159,10 @@ Sp_handler::show_create_sp(THD *thd, String *buf,
   case SP_MODIFIES_SQL_DATA:
     buf->append(STRING_WITH_LEN("    MODIFIES SQL DATA\n"));
     break;
-  case SP_DEFAULT_ACCESS:
   case SP_CONTAINS_SQL:
+    buf->append(STRING_WITH_LEN("    CONTAINS SQL\n"));
+    break;
+  case SP_DEFAULT_ACCESS:
     /* Do nothing */
     break;
   }
