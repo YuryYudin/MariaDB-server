@@ -872,6 +872,7 @@ typedef struct system_variables
   ulong server_id;
   ulong session_track_transaction_info;
   ulong threadpool_priority;
+  ulong parallel_worker_threads;
   ulong vers_alter_history;
 
   /* deadlock detection */
