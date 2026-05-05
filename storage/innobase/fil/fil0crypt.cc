@@ -1083,7 +1083,9 @@ struct rotate_thread_t {
   timed wait expires without being woken by a signal, indicating no work
   became available during the timeout period. */
   void increase_sleep_timeout() {
-	sleep_timeout_ms = std::min<uint16_t>(sleep_timeout_ms * 2, 60000);
+	sleep_timeout_ms = std::min<uint16_t>(
+		static_cast<uint16_t>(sleep_timeout_ms * 2u),
+		static_cast<uint16_t>(60000));
   }
 
   /** Reset sleep timeout to initial value.
@@ -1126,14 +1128,15 @@ struct rotate_thread_t {
 	max 5 attempts) to periodically recheck for tablespaces
 	that become available after DDL operations complete.
 	After 5 timeouts, switches to indefinite wait to avoid
-	CPU waste.
+	CPU waste. After 5 timeouts, switches to indefinite wait
+	to avoid CPU waste.
 
-	For default_encrypt_list iteration: Uses indefinite wait
-	since nullptr return already indicates temporarily
-	unacquirable spaces and wakes other threads.
+        Timeout resets to 5s when woken by signal when work is found.
 
-	Timeout resets to 5s when woken by signal (config change,
-	new tablespace) or when work is found.
+        Reason for timed wait even with default_encrypt_list:
+	Single thread scenario: No other threads to wake this one if
+	all spaces are temporarily unacquirable
+	Simplicity: Uniform wait strategy for all iteration modes
 
 	@param recheck  If true, skip waiting */
 	void wait_for_work(bool recheck) {
@@ -1324,10 +1327,6 @@ static bool fil_crypt_alloc_iops(rotate_thread_t *state)
 {
 	mysql_mutex_assert_owner(&fil_crypt_threads_mutex);
 	ut_ad(state->allocated_iops == 0);
-
-	/* We have not yet selected the space to rotate, thus
-	state might not contain space and we can't check
-	its status yet. */
 
 	uint max_iops = state->estimated_max_iops;
 
@@ -2209,15 +2208,23 @@ restart_iteration:
 				goto wait_for_work;
 			}
 
-			/* we found a space to rotate */
-			do {
-				if (thr.should_shutdown()) {
-					thr.space->release();
-					thr.space = fil_system.space_list.end();
-					goto func_exit;
-				}
-			} while (!fil_crypt_alloc_iops(&thr));
+			if (thr.should_shutdown()) {
+				thr.space->release();
+				thr.space = fil_system.space_list.end();
+				goto func_exit;
+			}
 
+			bool iops_allocated = fil_crypt_alloc_iops(&thr);
+
+			if (!iops_allocated) {
+				/* IOPS not available. Release space and restart iteration
+				to find a space again after IOPS become available. */
+				thr.space->release();
+				thr.space = fil_system.space_list.end();
+				continue;
+			}
+
+			thr.reset_sleep_timeout();
 			mysql_mutex_unlock(&fil_crypt_threads_mutex);
 			fil_crypt_start_rotate_space(&new_state, &thr);
 
