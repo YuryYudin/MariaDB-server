@@ -416,5 +416,10 @@ GREATEST(b,a)	4294967295
 DROP TABLE t2;
 DROP TABLE t1;
 #
-# End of 10.1 tests
+# MDEV-39363 Logical Bug in `NOT ( ... XOR ... )` Evaluation with Implicit Type Conversion
 #
+set @a=1e-1;
+select @a XOR 1, NOT(@a XOR 1);
+@a XOR 1	NOT(@a XOR 1)
+0	1
+# End of 10.1 tests
