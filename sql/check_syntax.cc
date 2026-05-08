@@ -347,12 +347,20 @@ bool syntax_checker(MYSQL_FILE *file)
   bool error= 0;
   THD thd(next_thread_id());
   plugin_parser_error_handler err_handler;
+  const LEX_CSTRING dummy_db= { STRING_WITH_LEN("dummy") };
   DBUG_ENTER("execute_queries");
 
-  thd.store_globals();                    // Setup current_thd and mysys_var
-  thd.init();                             // Needed for error messages
+  thd.store_globals();                  // Setup current_thd and mysys_var
+  thd.init();                           // Needed for error messages
+  thd.set_db(&dummy_db);                // Needed when db not specified in query
   thd.push_internal_handler(&err_handler);
   query.set_charset(thd.variables.character_set_client);
+
+  if (isatty(fileno(file->m_file)))
+  {
+    fprintf(stderr, "MariaDB syntax checker (interactive mode).\n");
+    fprintf(stderr, "Enter SQL statement followed by a semicolon(;). Press Ctrl-D to exit.\n\n");
+  }
 
   while (!get_query(&thd, file, &query))
   {

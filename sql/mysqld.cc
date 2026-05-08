@@ -4983,7 +4983,9 @@ static int init_server_components()
     default_tmp_storage_engine= 0;
     enforced_storage_engine= 0;
     opt_use_ssl= 0;
+#ifdef WITH_WSREP
     wsrep_recovery= 0;
+#endif
     opt_noacl= 1;
     opt_silent_startup= 1;
     global_system_variables.log_warnings= 0;
@@ -5229,7 +5231,7 @@ static int init_server_components()
 #ifdef WITH_WSREP
   if (wsrep_init_server()) unireg_abort(1);
 
-  if (WSREP_ON && !wsrep_recovery && !opt_abort)
+  if (WSREP_ON && !wsrep_recovery && !opt_abort && !opt_syntax_checker)
   {
     if (opt_bootstrap) // bootstrap option given - disable wsrep functionality
     {
@@ -5725,7 +5727,8 @@ static int init_server_components()
   prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0);
 #endif
 
-  ft_init_stopwords();
+  if (!opt_syntax_checker)
+    ft_init_stopwords();
 
   init_max_user_conn();
   init_global_user_stats();
@@ -6007,7 +6010,8 @@ int mysqld_main(int argc, char **argv)
     We have enough space for fiddling with the argv, continue
   */
   check_data_home(mysql_real_data_home);
-  if (my_setwd(mysql_real_data_home, opt_abort ? 0 : MYF(MY_WME)) && !opt_abort)
+  if (my_setwd(mysql_real_data_home, (opt_abort || opt_syntax_checker) ?
+                0 : MYF(MY_WME)) && !opt_abort  && !opt_syntax_checker)
     unireg_abort(1);				/* purecov: inspected */
 
   /* Atomic write initialization must be done as root */
