@@ -2166,7 +2166,7 @@ int partition_info::fix_partition_values(THD *thd,
     }
     part_elem->range_value= val->value;
   }
-  col_val->fixed= 2;
+  col_val->fixed= TRUE;
   DBUG_RETURN(FALSE);
 }
 
@@ -2224,7 +2224,7 @@ bool partition_info::fix_column_value_functions(THD *thd,
   part_column_list_val *col_val= val->col_val_array;
   DBUG_ENTER("partition_info::fix_column_value_functions");
 
-  if (col_val->fixed > 1)
+  if (col_val->fixed)
   {
     DBUG_RETURN(FALSE);
   }
@@ -2269,7 +2269,7 @@ bool partition_info::fix_column_value_functions(THD *thd,
         col_val->column_value= val_ptr;
       }
     }
-    col_val->fixed= 2;
+    col_val->fixed= TRUE;
   }
 end:
   DBUG_RETURN(result);
