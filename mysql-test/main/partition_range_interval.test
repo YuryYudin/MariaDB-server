@@ -1,0 +1,21 @@
+--source include/have_partition.inc
+set timestamp= unix_timestamp('2026-05-02 00:00:00');
+
+create table t1 (c datetime)
+PARTITION BY RANGE COLUMNS (c)
+INTERVAL 1 Day
+(
+  PARTITION p0 VALUES LESS THAN ("2026-04-01")
+);
+
+insert into t1 values ('2026-05-01');
+show create table t1;
+select partition_name, partition_method, partition_expression, partition_description, table_rows from information_schema.partitions where table_name='t1';
+
+set timestamp= unix_timestamp('2026-05-06 00:00:00');
+
+insert into t1 values ('2026-05-04');
+show create table t1;
+select partition_name, partition_method, partition_expression, partition_description, table_rows from information_schema.partitions where table_name='t1';
+
+drop table t1;

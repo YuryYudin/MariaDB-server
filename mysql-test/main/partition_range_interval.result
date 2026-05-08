@@ -1,0 +1,37 @@
+set timestamp= unix_timestamp('2026-05-02 00:00:00');
+create table t1 (c datetime)
+PARTITION BY RANGE COLUMNS (c)
+INTERVAL 1 Day
+(
+PARTITION p0 VALUES LESS THAN ("2026-04-01")
+);
+insert into t1 values ('2026-05-01');
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c` datetime DEFAULT NULL
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci
+ PARTITION BY RANGE  COLUMNS(`c`)INTERVAL 1 DAY
+(PARTITION `p0` VALUES LESS THAN ('2026-04-01') ENGINE = MyISAM,
+ PARTITION `p1` VALUES LESS THAN ('2026-05-02 00:00:00') ENGINE = MyISAM)
+select partition_name, partition_method, partition_expression, partition_description, table_rows from information_schema.partitions where table_name='t1';
+partition_name	partition_method	partition_expression	partition_description	table_rows
+p0	RANGE COLUMNS	`c`	'2026-04-01'	0
+p1	RANGE COLUMNS	`c`	'2026-05-02 00:00:00'	1
+set timestamp= unix_timestamp('2026-05-06 00:00:00');
+insert into t1 values ('2026-05-04');
+show create table t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c` datetime DEFAULT NULL
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci
+ PARTITION BY RANGE  COLUMNS(`c`)INTERVAL 1 DAY
+(PARTITION `p0` VALUES LESS THAN ('2026-04-01') ENGINE = MyISAM,
+ PARTITION `p1` VALUES LESS THAN ('2026-05-02 00:00:00') ENGINE = MyISAM,
+ PARTITION `p2` VALUES LESS THAN ('2026-05-06 00:00:00') ENGINE = MyISAM)
+select partition_name, partition_method, partition_expression, partition_description, table_rows from information_schema.partitions where table_name='t1';
+partition_name	partition_method	partition_expression	partition_description	table_rows
+p0	RANGE COLUMNS	`c`	'2026-04-01'	0
+p1	RANGE COLUMNS	`c`	'2026-05-02 00:00:00'	1
+p2	RANGE COLUMNS	`c`	'2026-05-06 00:00:00'	1
+drop table t1;
