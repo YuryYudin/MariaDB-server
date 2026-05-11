@@ -1368,6 +1368,33 @@ bool Opt_hints_qb::set_join_hint_deps(JOIN *join,
                nullptr, nullptr, nullptr, hint);
     return true;
   }
+
+  /*
+    A FULL JOIN nest table must be placed before any table
+    outside the nest (see sql_full_join.cc, the function
+    restrict_to_unplaced_fj_tables).  If the hint requires a
+    table outside the nest to precede one inside it, no plan
+    can satisfy both the hint and the FULL JOIN ordering rule,
+    so ignore the hint with a warning.
+  */
+  if (join->full_join_nest_tables)
+  {
+    const table_map fj_allowed_deps=
+        join->full_join_nest_tables | join->const_table_map;
+    for (uint i= 0; i < join->table_count; i++)
+    {
+      const JOIN_TAB *tab= &join->join_tab[i];
+      if (!(tab->table->map & join->full_join_nest_tables))
+        continue;
+      if (tab->dependent & ~fj_allowed_deps)
+      {
+        join->restore_table_dependencies(orig_dep_array);
+        print_warn(join->thd, ER_WARN_CONFLICTING_HINT, hint->hint_type,
+                   true, nullptr, nullptr, nullptr, hint);
+        return true;
+      }
+    }
+  }
   return false;
 }
 

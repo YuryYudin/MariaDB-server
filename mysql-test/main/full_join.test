@@ -1781,6 +1781,55 @@ select * from t3 right join (t1 full join t2 on t1.a=t2.b)
 
 drop table t1, t2, t3;
 
+--echo # FULL JOIN tables must be placed first in the join order because
+--echo # the null complement pass only works in phase 2 when FULL JOIN
+--echo # is "to the left" (outer) of other JOINs.  A JOIN_ORDER() hint
+--echo # that forces a non-FULL JOIN table before the FULL JOIN tables
+--echo # is illegal (expecting to relax this in phase 3).
+--echo # Without the fix, this asserted in best_extension_by_limited_search
+--echo # but now the hint's ignored for an invalid JOIN order (with a warning).
+create table t1 (a int);
+insert into t1 values (2), (1), (7), (1), (2);
+create table t2 (b int);
+insert into t2 values (4), (5), (9), (4), (1), (7);
+create table t3 (c int);
+insert into t3 values (3), (1), (3), (9);
+--echo # No hint, base case, should match other results.
+--sorted_result
+explain select *
+from t3 inner join (t1 full join t2 on t1.a=t2.b)
+  on (t3.c=t1.a or t2.b=5);
+--sorted_result
+select *
+from t3 inner join (t1 full join t2 on t1.a=t2.b)
+  on (t3.c=t1.a or t2.b=5);
+--echo # "Trivial" hint, it matches the expected join order (is allowed)
+explain select /*+ join_order(t1,t2,t3) */ *
+from t3 inner join (t1 full join t2 on t1.a=t2.b)
+  on (t3.c=t1.a or t2.b=5);
+--sorted_result
+select /*+ join_order(t1,t2,t3) */ *
+from t3 inner join (t1 full join t2 on t1.a=t2.b)
+  on (t3.c=t1.a or t2.b=5);
+--echo # JOIN_ORDER hint with combinations
+--sorted_result
+explain select /*+ join_order(t3,t1,t2) */ *
+from t3 inner join (t1 full join t2 on t1.a=t2.b)
+  on (t3.c=t1.a or t2.b=5);
+--sorted_result
+select /*+ join_order(t3,t1,t2) */ *
+from t3 inner join (t1 full join t2 on t1.a=t2.b)
+  on (t3.c=t1.a or t2.b=5);
+--sorted_result
+explain select /*+ join_order(t1,t3,t2) */ *
+from t3 inner join (t1 full join t2 on t1.a=t2.b)
+  on (t3.c=t1.a or t2.b=5);
+--sorted_result
+select /*+ join_order(t1,t3,t2) */ *
+from t3 inner join (t1 full join t2 on t1.a=t2.b)
+  on (t3.c=t1.a or t2.b=5);
+drop table t1, t2, t3;
+
 --echo # ====================================================================
 --echo # Section 19: Right side of FULL JOIN must be a base table
 --echo # ====================================================================
