@@ -63,10 +63,12 @@ CREATE ROLE IF NOT EXISTS mariadb_dump_import_role;
 GRANT mariadb_dump_import_role TO CURRENT_USER();
 SET ROLE mariadb_dump_import_role;
 /*!80001 CREATE ROLE 'role_1' */;
-/*M!100005 CREATE ROLE 'role_1' WITH ADMIN mariadb_dump_import_role */;
+/*M!100005 CREATE ROLE 'role_1' */;
+/*M!100005 GRANT 'role_1' TO mariadb_dump_import_role WITH ADMIN OPTION */;
 /*M!100005 GRANT 'role_1' TO 'root'@'localhost' WITH ADMIN OPTION */;
 /*!80001 CREATE ROLE 'role_2' */;
-/*M!100005 CREATE ROLE 'role_2' WITH ADMIN mariadb_dump_import_role */;
+/*M!100005 CREATE ROLE 'role_2' */;
+/*M!100005 GRANT 'role_2' TO mariadb_dump_import_role WITH ADMIN OPTION */;
 /*M!100005 GRANT 'role_2' TO 'role_1' WITH ADMIN OPTION */;
 GRANT USAGE ON *.* TO `mariadb.sys`@`localhost`;
 GRANT SELECT, DELETE ON `mysql`.`global_priv` TO `mariadb.sys`@`localhost`;
@@ -655,22 +657,22 @@ INSTALL PLUGIN test_plugin_server  SONAME 'AUTH_TEST_PLUGIN_LIB';
 /*M!100401 UNINSTALL PLUGIN IF EXIST cleartext_plugin_server */;
 INSTALL PLUGIN cleartext_plugin_server  SONAME 'AUTH_TEST_PLUGIN_LIB';
 DELIMITER |
-/*M!100101 IF current_user()='''mariadb.sys''@''localhost''' THEN
-  SIGNAL SQLSTATE '45000' SET MYSQL_ERRNO=30001, MESSAGE_TEXT="Don't remove current user 'mariadb.sys'@'localhost''";
+/*M!100101 IF current_user()='mariadb.sys@localhost' THEN
+  SIGNAL SQLSTATE '45000' SET MYSQL_ERRNO=30001, MESSAGE_TEXT="Don't remove current user 'mariadb.sys'@'localhost'";
 END IF */|
 DELIMITER ;
 /*!50701 DROP USER IF EXISTS 'mariadb.sys'@'localhost' */;
 CREATE /*M!100103 OR REPLACE */ USER `mariadb.sys`@`localhost` PASSWORD EXPIRE;
 DELIMITER |
-/*M!100101 IF current_user()='''root''@''localhost''' THEN
-  SIGNAL SQLSTATE '45000' SET MYSQL_ERRNO=30001, MESSAGE_TEXT="Don't remove current user 'root'@'localhost''";
+/*M!100101 IF current_user()='root@localhost' THEN
+  SIGNAL SQLSTATE '45000' SET MYSQL_ERRNO=30001, MESSAGE_TEXT="Don't remove current user 'root'@'localhost'";
 END IF */|
 DELIMITER ;
 /*!50701 DROP USER IF EXISTS 'root'@'localhost' */;
 CREATE /*M!100103 OR REPLACE */ USER `root`@`localhost`;
 DELIMITER |
-/*M!100101 IF current_user()='''foobar''@''%''' THEN
-  SIGNAL SQLSTATE '45000' SET MYSQL_ERRNO=30001, MESSAGE_TEXT="Don't remove current user 'foobar'@'%''";
+/*M!100101 IF current_user()='foobar@%' THEN
+  SIGNAL SQLSTATE '45000' SET MYSQL_ERRNO=30001, MESSAGE_TEXT="Don't remove current user 'foobar'@'%'";
 END IF */|
 DELIMITER ;
 /*!50701 DROP USER IF EXISTS 'foobar'@'%' */;
@@ -681,11 +683,13 @@ GRANT mariadb_dump_import_role TO CURRENT_USER();
 SET ROLE mariadb_dump_import_role;
 /*!80001 DROP ROLE IF EXISTS 'role_1' */;
 /*!80001 CREATE ROLE 'role_1' */;
-/*M!100103 CREATE OR REPLACE ROLE 'role_1' WITH ADMIN mariadb_dump_import_role */;
+/*M!100103 CREATE OR REPLACE ROLE 'role_1' */;
+/*M!100005 GRANT 'role_1' TO mariadb_dump_import_role WITH ADMIN OPTION */;
 /*M!100005 GRANT 'role_1' TO 'root'@'localhost' WITH ADMIN OPTION */;
 /*!80001 DROP ROLE IF EXISTS 'role_2' */;
 /*!80001 CREATE ROLE 'role_2' */;
-/*M!100103 CREATE OR REPLACE ROLE 'role_2' WITH ADMIN mariadb_dump_import_role */;
+/*M!100103 CREATE OR REPLACE ROLE 'role_2' */;
+/*M!100005 GRANT 'role_2' TO mariadb_dump_import_role WITH ADMIN OPTION */;
 /*M!100005 GRANT 'role_2' TO 'role_1' WITH ADMIN OPTION */;
 GRANT USAGE ON *.* TO `mariadb.sys`@`localhost`;
 GRANT SELECT, DELETE ON `mysql`.`global_priv` TO `mariadb.sys`@`localhost`;
@@ -1280,10 +1284,12 @@ CREATE ROLE IF NOT EXISTS mariadb_dump_import_role;
 GRANT mariadb_dump_import_role TO CURRENT_USER();
 SET ROLE mariadb_dump_import_role;
 /*!80001 CREATE ROLE IF NOT EXISTS 'role_1' */;
-/*M!100005 CREATE ROLE IF NOT EXISTS 'role_1' WITH ADMIN mariadb_dump_import_role */;
+/*M!100005 CREATE ROLE IF NOT EXISTS 'role_1' */;
+/*M!100005 GRANT 'role_1' TO mariadb_dump_import_role WITH ADMIN OPTION */;
 /*M!100005 GRANT 'role_1' TO 'root'@'localhost' WITH ADMIN OPTION */;
 /*!80001 CREATE ROLE IF NOT EXISTS 'role_2' */;
-/*M!100005 CREATE ROLE IF NOT EXISTS 'role_2' WITH ADMIN mariadb_dump_import_role */;
+/*M!100005 CREATE ROLE IF NOT EXISTS 'role_2' */;
+/*M!100005 GRANT 'role_2' TO mariadb_dump_import_role WITH ADMIN OPTION */;
 /*M!100005 GRANT 'role_2' TO 'role_1' WITH ADMIN OPTION */;
 GRANT USAGE ON *.* TO `mariadb.sys`@`localhost`;
 GRANT SELECT, DELETE ON `mysql`.`global_priv` TO `mariadb.sys`@`localhost`;

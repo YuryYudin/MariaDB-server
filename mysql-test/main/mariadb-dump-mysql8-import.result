@@ -1,0 +1,506 @@
+# test imports a captured mariadb-dump-from-MySQL-8.4.8 output
+# (mysql8_users_dump.sql) on MariaDB and checks the MariaDB state
+SET NAMES utf8mb4;
+CREATE TABLE backup_global_priv   LIKE mysql.global_priv;
+CREATE TABLE backup_roles_mapping LIKE mysql.roles_mapping;
+CREATE TABLE backup_tables_priv   LIKE mysql.tables_priv;
+CREATE TABLE backup_columns_priv  LIKE mysql.columns_priv;
+CREATE TABLE backup_procs_priv    LIKE mysql.procs_priv;
+CREATE TABLE backup_proxies_priv  LIKE mysql.proxies_priv;
+CREATE TABLE backup_db            LIKE mysql.db;
+INSERT INTO backup_global_priv   SELECT * FROM mysql.global_priv;
+INSERT INTO backup_roles_mapping SELECT * FROM mysql.roles_mapping;
+INSERT INTO backup_tables_priv   SELECT * FROM mysql.tables_priv;
+INSERT INTO backup_columns_priv  SELECT * FROM mysql.columns_priv;
+INSERT INTO backup_procs_priv    SELECT * FROM mysql.procs_priv;
+INSERT INTO backup_proxies_priv  SELECT * FROM mysql.proxies_priv;
+INSERT INTO backup_db            SELECT * FROM mysql.db;
+CREATE DATABASE IF NOT EXISTS m8_db;
+CREATE TABLE m8_db.tab (col_a INT, col_underscore_b INT, plain INT);
+CREATE TABLE m8_db.tab2 (id INT PRIMARY KEY, payload TEXT);
+USE m8_db;
+CREATE PROCEDURE proc_one(IN x INT) BEGIN SELECT x; END$$
+CREATE FUNCTION  func_one(x INT) RETURNS INT DETERMINISTIC BEGIN RETURN x*2; END$$
+USE test;
+CREATE DATABASE IF NOT EXISTS `m8_under_score_db`;
+CALL mtr.add_suppression('failed to read private_key.pem: 2 "No such file or directory"');
+CALL mtr.add_suppression("Plugin 'caching_sha2_password' is of maturity level gamma");
+CREATE USER m8_restore IDENTIFIED BY 'r';
+GRANT ALL ON *.* TO m8_restore WITH GRANT OPTION;
+GRANT PROXY ON ''@'%' TO m8_restore WITH GRANT OPTION;
+DROP USER m8_restore;
+# 0a. Captured caching_sha2_password hashes are in the
+#     A-format-005 prefix that auth_mysql_sha2 supports. If MySQL
+#     bumps the format, the round-trip auth check below silently
+#     breaks; this assertion fires loudly instead. If
+#     unexpected_count is nonzero, audit auth_mysql_sha2 plugin
+#     compatibility against the prefixes shown.
+SELECT COUNT(*) AS unexpected_count,
+GROUP_CONCAT(DISTINCT
+LEFT(JSON_VALUE(Priv, '$.authentication_string'), 6)) AS prefixes
+FROM mysql.global_priv
+WHERE User LIKE 'm8\\_%'
+    AND JSON_VALUE(Priv, '$.plugin') = 'caching_sha2_password'
+    AND JSON_VALUE(Priv, '$.authentication_string') NOT LIKE '$A$005$%'
+    AND JSON_VALUE(Priv, '$.authentication_string') <> '';
+unexpected_count	prefixes
+0	NULL
+# 0b. Unsafe-wrap fallback fired (the m8_role*/starslash fixture
+#     forces it). Zero hits means the protection regressed.
+unsafe_wrap_warnings_present: 1
+# 1. Every m8_* user landed.
+SELECT user, host FROM mysql.global_priv WHERE user LIKE 'm8\\_%' ORDER BY user, host;
+user	host
+m8_admin_chain_root	%
+m8_all_privs	%
+m8_auth_caching_sha2	%
+m8_auth_no_pwd	%
+m8_auth_sha256	%
+m8_col_priv	%
+m8_combined	%
+m8_db_underscore	%
+m8_default_a	
+m8_default_a	%
+m8_default_b	
+m8_default_b	%
+m8_default_role_many	%
+m8_default_role_one	%
+m8_dumper	%
+m8_dyn_all_dropped	%
+m8_dyn_flush_collapse	%
+m8_dyn_grant_opt	%
+m8_dyn_mapped	%
+m8_dyn_mixed	%
+m8_dyn_unmapped	%
+m8_edge_at_in_name	%
+m8_edge_space	%
+m8_edge_wildcard_host	192.168.%.%
+m8_failed_login	%
+m8_func_exec	%
+m8_host_dual	%
+m8_host_dual	localhost
+m8_host_localhost	localhost
+m8_lock	%
+m8_max_conn	%
+m8_multiscope	%
+m8_partial_revoke	%
+m8_proc_exec	%
+m8_proxy_target	%
+m8_proxy_user	%
+m8_pwd_expire_default	%
+m8_pwd_expire_interval	%
+m8_pwd_expire_never	%
+m8_pwd_expire_now	%
+m8_pwd_history	%
+m8_pwd_require_current	%
+m8_pwd_reuse	%
+m8_require_cipher	%
+m8_require_ssl	%
+m8_require_x509	%
+m8_resource_full	%
+m8_role*/starslash	%
+m8_role_a	
+m8_role_a	%
+m8_role_b	
+m8_role_b	%
+m8_role_c	
+m8_role_c	%
+m8_role_d	
+m8_role_d	%
+m8_role_static	%
+m8_routine_admin	%
+m8_shared_role	
+m8_shared_role	%
+m8_shared_user_1	%
+m8_shared_user_2	%
+m8_shared_user_3	%
+m8_shared_user_4	%
+m8_shared_user_5	%
+m8_simple	%
+m8_starslash_comment	%
+m8_starslash_escaped	%
+m8_static_dyn_mix	%
+m8_static_priv	%
+m8_static_role_mix	%
+m8_system_grants	%
+m8_unlock	%
+m8_usage_only	%
+m8_with_attribute	%
+m8_with_comment	%
+m8_用户	%
+# 2. Roles imported with admin chain preserved.
+SELECT User, Host, Role, Admin_option FROM mysql.roles_mapping
+WHERE Role LIKE 'm8\\_%' OR User LIKE 'm8\\_%'
+  ORDER BY Role, User, Host;
+User	Host	Role	Admin_option
+m8_combined	%	m8_default_a	N
+m8_default_role_many	%	m8_default_a	N
+m8_default_role_one	%	m8_default_a	N
+m8_shared_user_1	%	m8_default_a	N
+m8_shared_user_2	%	m8_default_a	N
+m8_default_role_many	%	m8_default_b	N
+m8_admin_chain_root	%	m8_role_a	Y
+m8_simple	%	m8_role_a	Y
+m8_role_a		m8_role_b	Y
+m8_role_b		m8_role_c	Y
+m8_simple	%	m8_role_d	N
+m8_shared_user_1	%	m8_shared_role	N
+m8_shared_user_2	%	m8_shared_role	Y
+m8_shared_user_3	%	m8_shared_role	N
+m8_shared_user_4	%	m8_shared_role	N
+m8_shared_user_5	%	m8_shared_role	Y
+# 3. Role-CREATE dedup (regression for ER 1396 on shared roles).
+SELECT 'm8_shared_role' AS role, COUNT(*) AS grant_count
+FROM mysql.roles_mapping
+WHERE Role='m8_shared_role';
+role	grant_count
+m8_shared_role	5
+# 4. Default-role assignment.
+SELECT User, Host, default_role
+FROM mysql.user
+WHERE User IN ('m8_default_role_one','m8_default_role_many','m8_combined')
+AND default_role <> ''
+  ORDER BY User, Host;
+User	Host	default_role
+m8_combined	%	m8_default_a
+m8_default_role_many	%	m8_default_b
+m8_default_role_one	%	m8_default_a
+# 5. Translator: simple static grants pass through unchanged.
+SHOW GRANTS FOR 'm8_simple'@'%';
+Grants for m8_simple@%
+GRANT `m8_role_a` TO `m8_simple`@`%` WITH ADMIN OPTION
+GRANT `m8_role_d` TO `m8_simple`@`%`
+GRANT USAGE ON *.* TO `m8_simple`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$wG*hah],Ed|g+hIx1ucDOeI2q/9fItlBgIr/6b2G8az4u3unkvgNg.8hca6bC'
+GRANT SELECT ON `m8_db`.* TO `m8_simple`@`%`
+SHOW GRANTS FOR 'm8_static_priv'@'%';
+Grants for m8_static_priv@%
+GRANT RELOAD, PROCESS ON *.* TO `m8_static_priv`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$Ah1gq!(oIj>[%QB9tMcK7w6WrOrV6RZurfVvhwWI7EyG3u0GW/NvO7gw1'
+GRANT SELECT, INSERT, UPDATE, DELETE ON `m8_db`.* TO `m8_static_priv`@`%`
+# 6. Translator: dynamic priv mapping (BINLOG_ADMIN -> BINLOG REPLAY/ADMIN).
+SHOW GRANTS FOR 'm8_dyn_mapped'@'%';
+Grants for m8_dyn_mapped@%
+GRANT BINLOG ADMIN, BINLOG REPLAY ON *.* TO `m8_dyn_mapped`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$<]Wz}[n^X s^i[?2nAM7VTwOTX4QGqBH7TsKeuyFkKPAjl7fXiDJpgZNYkmB'
+# 7. Translator: all-unmapped-dynamic case -> only USAGE remains.
+SHOW GRANTS FOR 'm8_dyn_unmapped'@'%';
+Grants for m8_dyn_unmapped@%
+GRANT USAGE ON *.* TO `m8_dyn_unmapped`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$W%#Lxy1D,wsQItXth1Q.UUVbHjzsija7tF13p.oIEGysIfn89.7I.Np1T7'
+SHOW GRANTS FOR 'm8_dyn_all_dropped'@'%';
+Grants for m8_dyn_all_dropped@%
+GRANT USAGE ON *.* TO `m8_dyn_all_dropped`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$
+7*d{heu~y=R"|DGgO1tBM/MA6MAVIIAP4a2ojz/L4L.3d1j2.MPVlrYYQ08'
+# 8. Translator: mixed dynamic priv (some mapped, some not).
+SHOW GRANTS FOR 'm8_dyn_mixed'@'%';
+Grants for m8_dyn_mixed@%
+GRANT CONNECTION ADMIN, BINLOG ADMIN, BINLOG REPLAY, SHOW CREATE ROUTINE ON *.* TO `m8_dyn_mixed`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$Choa_qi\/%itYfGw3u57jawxTXHNnbixLlZCuGUO2kr0BsLKjg.3zCL4g1'
+# 9. Translator: WITH GRANT OPTION suffix preserved.
+SHOW GRANTS FOR 'm8_dyn_grant_opt'@'%';
+Grants for m8_dyn_grant_opt@%
+GRANT CONNECTION ADMIN, BINLOG ADMIN, BINLOG REPLAY ON *.* TO `m8_dyn_grant_opt`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$u;;I;.b5tkPJl]w
+0LM7oLDQc6OmpXsJdDR.nlt4dfHJgBvl5fd0rybADp2' WITH GRANT OPTION
+# 10. Translator: FLUSH_* dropped (over-broad mapping to RELOAD avoided).
+SHOW GRANTS FOR 'm8_dyn_flush_collapse'@'%';
+Grants for m8_dyn_flush_collapse@%
+GRANT USAGE ON *.* TO `m8_dyn_flush_collapse`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$%4EaW0{Y9Sf"W'&CquE32/v5AFdWgZ3PyRdbUzEBfTyfFkPCG3s72h.o2B'
+# 11. Translator: CREATE ROLE / DROP ROLE static privs dropped.
+SHOW GRANTS FOR 'm8_role_static'@'%';
+Grants for m8_role_static@%
+GRANT USAGE ON *.* TO `m8_role_static`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$Z(wY+-2&u
+L-GD7lLxIeJHHmBYovWDyc10oWq4iATAx7jHYmTH2KnHbwz7'
+SHOW GRANTS FOR 'm8_static_role_mix'@'%';
+Grants for m8_static_role_mix@%
+GRANT SELECT, INSERT ON *.* TO `m8_static_role_mix`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$~"Cl,iGgf5m:Ozh0]\QIMTMTa1FW/llWJ.xm.uqTag8ZJ55r4ZwKFaxAJIcl1'
+# 12. Identifier parsing: column / db underscores don't false-positive.
+SHOW GRANTS FOR 'm8_col_priv'@'%';
+Grants for m8_col_priv@%
+GRANT USAGE ON *.* TO `m8_col_priv`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$1Y:+!S|;&'%9lPFnU+7'ES7TDLwSqxrBd7ebWjbRcmCjP68dNEQCMDgk9eV0l8.'
+GRANT SELECT (`col_underscore_b`, `col_a`), UPDATE (`col_a`) ON `m8_db`.`tab` TO `m8_col_priv`@`%`
+SHOW GRANTS FOR 'm8_db_underscore'@'%';
+Grants for m8_db_underscore@%
+GRANT USAGE ON *.* TO `m8_db_underscore`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$Z;=/'0Jfy.'okBrZy7AxvU.epNXK82Nc1x.NtQl1qPsgZXnw3qaSjBKC'
+GRANT SELECT ON `m8_under_score_db`.* TO `m8_db_underscore`@`%`
+# 13. Identifier parsing: edge-case usernames and hostnames.
+SELECT user, host FROM mysql.global_priv
+WHERE user IN ('m8_edge_space','m8_edge_at_in_name','m8_edge_wildcard_host')
+ORDER BY user, host;
+user	host
+m8_edge_at_in_name	%
+m8_edge_space	%
+m8_edge_wildcard_host	192.168.%.%
+SHOW GRANTS FOR 'm8_edge_wildcard_host'@'192.168.%.%';
+Grants for m8_edge_wildcard_host@192.168.%.%
+GRANT USAGE ON *.* TO `m8_edge_wildcard_host`@`192.168.%.%` IDENTIFIED VIA caching_sha2_password USING '$A$005$"/X3]d%C9h6`1H0:3kWyr1JWLJ09/eUNLpHNrn.a9LyD5.rnU5J2QO1De.A'
+GRANT SELECT ON `m8_db`.* TO `m8_edge_wildcard_host`@`192.168.%.%`
+# 14. ALL PRIVILEGES expands and survives import.
+SHOW GRANTS FOR 'm8_all_privs'@'%';
+Grants for m8_all_privs@%
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, BINLOG MONITOR, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, SET USER, CONNECTION ADMIN, REPLICATION SLAVE ADMIN, BINLOG ADMIN, BINLOG REPLAY, SHOW CREATE ROUTINE ON *.* TO `m8_all_privs`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$a>kRT#8>0=SUU9IcBr7P8DpNoLFr5.KUDYh9JRj.hEtnuyvNAqn02kMgV8A3' WITH GRANT OPTION
+# 15. Multi-scope grants for one user.
+SHOW GRANTS FOR 'm8_multiscope'@'%';
+Grants for m8_multiscope@%
+GRANT PROCESS ON *.* TO `m8_multiscope`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$n4M\Ym	#9G=2YRUsMoBsWq/b.j3jXgSSRmlCxYE08jNzR49AeibXY2'
+GRANT SELECT ON `m8_db`.* TO `m8_multiscope`@`%`
+GRANT INSERT, UPDATE ON `m8_db`.`tab` TO `m8_multiscope`@`%`
+# 16. Routine privileges land in mysql.procs_priv.
+SELECT User, Host, Db, Routine_name, Routine_type, Proc_priv
+FROM mysql.procs_priv
+WHERE User LIKE 'm8\\_%'
+  ORDER BY User, Host, Routine_type, Routine_name;
+User	Host	Db	Routine_name	Routine_type	Proc_priv
+m8_func_exec	%	m8_db	func_one	FUNCTION	Execute
+m8_proc_exec	%	m8_db	proc_one	PROCEDURE	Execute
+m8_shared_role	%	m8_db	proc_one	PROCEDURE	Execute
+SHOW GRANTS FOR 'm8_routine_admin'@'%';
+Grants for m8_routine_admin@%
+GRANT USAGE ON *.* TO `m8_routine_admin`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$Q'&(_c,Gk6!(GMGtk1ZYwTuk2he0lLVv23VnwJORkltRU5pcrCLi4Pf9'
+GRANT EXECUTE, CREATE ROUTINE, ALTER ROUTINE ON `m8_db`.* TO `m8_routine_admin`@`%`
+# 17. PROXY grant lands in mysql.proxies_priv.
+SELECT User, Host, Proxied_user, Proxied_host
+FROM mysql.proxies_priv
+WHERE User='m8_proxy_user'
+  ORDER BY User, Host;
+User	Host	Proxied_user	Proxied_host
+m8_proxy_user	%	m8_proxy_target	%
+# 18. USAGE-only user lands with the implicit GRANT USAGE.
+SHOW GRANTS FOR 'm8_usage_only'@'%';
+Grants for m8_usage_only@%
+GRANT USAGE ON *.* TO `m8_usage_only`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$y	Cbtvs1x|9{7gUYv7YktVbioYHFiC3MxwXBcsOgElq4Xs9Z6.Wc6zYEMA'
+# 19. ACCOUNT LOCK / UNLOCK.
+SELECT User, Host,
+JSON_VALUE(Priv, '$.account_locked') AS account_locked
+FROM mysql.global_priv
+WHERE User IN ('m8_lock','m8_unlock')
+ORDER BY User, Host;
+User	Host	account_locked
+m8_lock	%	1
+m8_unlock	%	0
+# 20. PASSWORD EXPIRE variants.
+SELECT User, Host,
+password_expired,
+JSON_VALUE(Priv, '$.password_lifetime') AS password_lifetime
+FROM mysql.user
+JOIN mysql.global_priv USING (User, Host)
+WHERE User IN ('m8_pwd_expire_now','m8_pwd_expire_never',
+'m8_pwd_expire_interval','m8_pwd_expire_default')
+ORDER BY User;
+User	Host	password_expired	password_lifetime
+m8_pwd_expire_default	%	N	-1
+m8_pwd_expire_interval	%	N	90
+m8_pwd_expire_never	%	N	0
+m8_pwd_expire_now	%	Y	-1
+# 21. Resource limits.
+SELECT User, Host,
+JSON_VALUE(Priv, '$.max_questions')        AS max_q,
+JSON_VALUE(Priv, '$.max_updates')          AS max_u,
+JSON_VALUE(Priv, '$.max_connections')      AS max_c,
+JSON_VALUE(Priv, '$.max_user_connections') AS max_user_c
+FROM mysql.global_priv
+WHERE User IN ('m8_max_conn','m8_resource_full')
+ORDER BY User;
+User	Host	max_q	max_u	max_c	max_user_c
+m8_max_conn	%	1000	NULL	NULL	10
+m8_resource_full	%	5000	500	100	25
+# 22. REQUIRE variants.
+SELECT User, Host,
+JSON_VALUE(Priv, '$.ssl_type')   AS ssl_type,
+JSON_VALUE(Priv, '$.ssl_cipher') AS ssl_cipher
+FROM mysql.global_priv
+WHERE User IN ('m8_require_ssl','m8_require_x509','m8_require_cipher')
+ORDER BY User;
+User	Host	ssl_type	ssl_cipher
+m8_require_cipher	%	3	ECDHE-RSA-AES128-GCM-SHA256
+m8_require_ssl	%	1	
+m8_require_x509	%	2	
+# 23. Combined CREATE USER extensions: sort-by-offset path.
+SELECT User, Host,
+JSON_VALUE(Priv, '$.account_locked')        AS account_locked,
+JSON_VALUE(Priv, '$.ssl_type')              AS ssl_type,
+JSON_VALUE(Priv, '$.max_user_connections')  AS max_user_c
+FROM mysql.global_priv
+WHERE User='m8_combined' AND Host='%';
+User	Host	account_locked	ssl_type	max_user_c
+m8_combined	%	1	1	5
+SHOW GRANTS FOR 'm8_combined'@'%';
+Grants for m8_combined@%
+GRANT `m8_default_a` TO `m8_combined`@`%`
+GRANT USAGE ON *.* TO `m8_combined`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$rj}X40vh~:'_,vXMMtd7M/rIETxjcfNgjq9OLsM9CxRzKsxesH3ODQmsD' REQUIRE SSL WITH MAX_USER_CONNECTIONS 5
+GRANT SELECT ON `m8_db`.* TO `m8_combined`@`%`
+SET DEFAULT ROLE `m8_default_a` FOR `m8_combined`@`%`
+# 24. Auth plugin coverage: sha256 (wrapped), no-pwd, caching_sha2.
+#     mysql_native_password is intentionally absent: many MySQL 8.4
+#     distros omit the loadable component, so it can't be tested
+#     from a fixture script. The H4 translator path (unsupported
+#     plugin -> wrap + warn) is exercised by m8_auth_sha256.
+SELECT User, Host,
+JSON_VALUE(Priv, '$.plugin')                AS plugin,
+LENGTH(JSON_VALUE(Priv, '$.authentication_string')) > 0 AS has_auth_string
+FROM mysql.global_priv
+WHERE User IN ('m8_auth_sha256','m8_auth_no_pwd','m8_auth_caching_sha2')
+ORDER BY User;
+User	Host	plugin	has_auth_string
+m8_auth_caching_sha2	%	caching_sha2_password	1
+m8_auth_no_pwd	%	caching_sha2_password	0
+m8_auth_sha256	%	mysql_native_password	0
+# 25. System-schema grants (mysql.user, performance_schema.*).
+SHOW GRANTS FOR 'm8_system_grants'@'%';
+Grants for m8_system_grants@%
+GRANT USAGE ON *.* TO `m8_system_grants`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$smJVXG#6S^%|P`nlozciZoQUUiFGlug1qgMpld5AQJjClph/2VkoH1G09'
+GRANT SELECT ON `performance_schema`.* TO `m8_system_grants`@`%`
+GRANT SELECT ON `mysql`.`user` TO `m8_system_grants`@`%`
+# 26. Same-name-different-host coverage.
+SELECT User, Host FROM mysql.global_priv
+WHERE User IN ('m8_host_localhost','m8_host_dual')
+ORDER BY User, Host;
+User	Host
+m8_host_dual	%
+m8_host_dual	localhost
+m8_host_localhost	localhost
+SHOW GRANTS FOR 'm8_host_localhost'@'localhost';
+Grants for m8_host_localhost@localhost
+GRANT USAGE ON *.* TO `m8_host_localhost`@`localhost` IDENTIFIED VIA caching_sha2_password USING '$A$005$.GuUr~C..2Q5Awqb2MCVmKDJMMqV.stPXQjTHfSSeDaYZ08f97xN9HmqSW6A'
+GRANT SELECT ON `m8_db`.* TO `m8_host_localhost`@`localhost`
+SHOW GRANTS FOR 'm8_host_dual'@'localhost';
+Grants for m8_host_dual@localhost
+GRANT USAGE ON *.* TO `m8_host_dual`@`localhost` IDENTIFIED VIA caching_sha2_password USING '$A$005$RJu)T[,]%\Ex]u C!RKCXq4Ld7AVaFCjIjSp2o3/lQFtJ6AOmMDPqYkqpyA4'
+GRANT SELECT ON `m8_db`.* TO `m8_host_dual`@`localhost`
+SHOW GRANTS FOR 'm8_host_dual'@'%';
+Grants for m8_host_dual@%
+GRANT USAGE ON *.* TO `m8_host_dual`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$\R-.qg11#<{x\k7UCK5XBj5eqPTC6Au8HITPs9c8G/p4kX9XQri4Q8Q9'
+GRANT SELECT ON `m8_db`.`tab2` TO `m8_host_dual`@`%`
+# 27. Identifier edge cases: anonymous + embedded quote + UTF-8.
+# ORDER BY BINARY for collation-stable byte-level ordering across
+# servers running different default collations.
+SELECT User, Host FROM mysql.global_priv
+WHERE User='' OR User='O\'Brien' OR User='m8_用户'
+  ORDER BY BINARY User, Host;
+User	Host
+	%
+	localhost
+O'Brien	%
+m8_用户	%
+SHOW GRANTS FOR 'O\'Brien'@'%';
+Grants for O'Brien@%
+GRANT USAGE ON *.* TO `O'Brien`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$@o@(^\UaKn*j(Dh>>?UEk96KsKIOlQNw3DaQIFxkpox7HIW7ALdlVjFNJLbWj6'
+GRANT SELECT ON `m8_db`.* TO `O'Brien`@`%`
+SHOW GRANTS FOR 'm8_用户'@'%';
+Grants for m8_用户@%
+GRANT USAGE ON *.* TO `m8_用户`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$|sVC/! 5;>&zpdv9isqUYMUmAWvlX4tQNlU9YO3vRbrnUPnwTJ/sO5dmA'
+GRANT SELECT ON `m8_db`.* TO `m8_用户`@`%`
+# 28. CREATE USER COMMENT with embedded '*/' must not break the
+#     version-comment wrapper. m8_starslash_escaped covers the
+#     backslash-then-star-slash case (safe-wrap split must run
+#     before any SQL escape skip).
+SELECT User, Host
+FROM mysql.global_priv
+WHERE User IN ('m8_starslash_comment','m8_starslash_escaped')
+ORDER BY User, Host;
+User	Host
+m8_starslash_comment	%
+m8_starslash_escaped	%
+# 29. Partial REVOKE translation. m8_partial_revoke gets a wide
+#     GRANT on *.* and a partial REVOKE on m8_db.*. The latter
+#     only survives in the dump if partial_revokes was ON during
+#     capture (see std_data/mysql8_users_setup.sql Section 18).
+SHOW GRANTS FOR 'm8_partial_revoke'@'%';
+Grants for m8_partial_revoke@%
+GRANT SELECT, INSERT ON *.* TO `m8_partial_revoke`@`%` IDENTIFIED VIA caching_sha2_password USING '$A$005$V|x?x.5_G_(\dxRfGAnaiiBEYXYAtWp4Cmvxrz/v6AQMVZiL7O33kLR/'
+# === Functional access checks ===
+DROP USER ''@'localhost';
+# caching_sha2_password preservation (Unix only - gated;
+#     'OK' on Windows means skipped, not exercised).
+SELECT IF('m8_auth_caching_sha2@%' = 'm8_auth_caching_sha2@%',
+'OK',
+CONCAT('FAIL: got ', 'm8_auth_caching_sha2@%')) AS caching_sha2_round_trip;
+caching_sha2_round_trip
+OK
+ALTER USER 'm8_simple'@'%'      IDENTIFIED VIA mysql_native_password USING PASSWORD('pw');
+ALTER USER 'm8_col_priv'@'%'    IDENTIFIED VIA mysql_native_password USING PASSWORD('pw');
+ALTER USER 'm8_role_static'@'%' IDENTIFIED VIA mysql_native_password USING PASSWORD('pw');
+ALTER USER 'm8_proc_exec'@'%'   IDENTIFIED VIA mysql_native_password USING PASSWORD('pw');
+ALTER USER 'm8_lock'@'%'        IDENTIFIED VIA mysql_native_password USING PASSWORD('pw');
+#  m8_simple: schema SELECT works; INSERT denied; role grants overlay.
+connect  c_simple, localhost, m8_simple, pw, m8_db;
+SELECT COUNT(*) AS rows_visible FROM m8_db.tab;
+rows_visible
+0
+INSERT INTO m8_db.tab VALUES (1,1,1);
+ERROR 42000: INSERT command denied to user 'm8_simple'@'localhost' for table `m8_db`.`tab`
+SET ROLE m8_role_a;
+SELECT COUNT(*) AS rows_via_role FROM m8_db.tab;
+rows_via_role
+0
+disconnect c_simple;
+connection default;
+# m8_col_priv: SELECT/UPDATE on granted columns; non-granted denied.
+connect  c_col, localhost, m8_col_priv, pw, m8_db;
+SELECT col_a, col_underscore_b FROM m8_db.tab;
+col_a	col_underscore_b
+SELECT plain FROM m8_db.tab;
+ERROR 42000: SELECT command denied to user 'm8_col_priv'@'localhost' for column 'plain' in table 'tab'
+UPDATE m8_db.tab SET col_a = 1 WHERE col_a IS NULL OR col_a IS NOT NULL;
+UPDATE m8_db.tab SET plain = 1;
+ERROR 42000: UPDATE command denied to user 'm8_col_priv'@'localhost' for column 'plain' in table 'tab'
+disconnect c_col;
+connection default;
+# m8_role_static landed with USAGE only -> CREATE/DROP ROLE denied.
+connect  c_rs, localhost, m8_role_static, pw;
+CREATE ROLE m8_should_fail_role;
+ERROR 42000: Access denied; you need (at least one of) the CREATE USER privilege(s) for this operation
+DROP ROLE IF EXISTS m8_role_a;
+ERROR 42000: Access denied; you need (at least one of) the CREATE USER privilege(s) for this operation
+disconnect c_rs;
+connection default;
+# m8_admin_chain_root: WITH ADMIN OPTION on m8_role_a is preserved.
+ALTER USER 'm8_admin_chain_root'@'%' ACCOUNT UNLOCK;
+ALTER USER 'm8_admin_chain_root'@'%' IDENTIFIED VIA mysql_native_password USING PASSWORD('reset');
+CREATE USER m8_role_recipient IDENTIFIED BY 'r';
+connect  c_admin, localhost, m8_admin_chain_root, reset;
+GRANT m8_role_a TO m8_role_recipient;
+disconnect c_admin;
+connection default;
+SELECT User, Host, Role, Admin_option
+FROM mysql.roles_mapping
+WHERE User='m8_role_recipient' AND Role='m8_role_a';
+User	Host	Role	Admin_option
+m8_role_recipient	%	m8_role_a	N
+DROP USER m8_role_recipient;
+# m8_proc_exec: EXECUTE works; DROP PROCEDURE denied.
+connect  c_proc, localhost, m8_proc_exec, pw, m8_db;
+CALL m8_db.proc_one(42);
+x
+42
+DROP PROCEDURE m8_db.proc_one;
+ERROR 42000: alter routine command denied to user 'm8_proc_exec'@'%' for routine 'm8_db.proc_one'
+disconnect c_proc;
+connection default;
+# m8_lock: ACCOUNT LOCK survives import; connect rejected.
+connect(localhost,m8_lock,pw,test,MYSQL_PORT,MYSQL_SOCK);
+connect  c_lock, localhost, m8_lock, pw;
+ERROR HY000: Access denied, this account is locked
+SELECT User, Host, JSON_VALUE(Priv, '$.account_locked') AS account_locked
+FROM mysql.global_priv WHERE User='m8_lock';
+User	Host	account_locked
+m8_lock	%	1
+DROP DATABASE IF EXISTS m8_db;
+DROP DATABASE IF EXISTS `m8_under_score_db`;
+DELETE FROM mysql.global_priv;
+DELETE FROM mysql.roles_mapping;
+DELETE FROM mysql.tables_priv;
+DELETE FROM mysql.columns_priv;
+DELETE FROM mysql.procs_priv;
+DELETE FROM mysql.proxies_priv;
+DELETE FROM mysql.db;
+INSERT INTO mysql.global_priv   SELECT * FROM backup_global_priv;
+INSERT INTO mysql.roles_mapping SELECT * FROM backup_roles_mapping;
+INSERT INTO mysql.tables_priv   SELECT * FROM backup_tables_priv;
+INSERT INTO mysql.columns_priv  SELECT * FROM backup_columns_priv;
+INSERT INTO mysql.procs_priv    SELECT * FROM backup_procs_priv;
+INSERT INTO mysql.proxies_priv  SELECT * FROM backup_proxies_priv;
+INSERT INTO mysql.db            SELECT * FROM backup_db;
+DROP TABLE backup_global_priv;
+DROP TABLE backup_roles_mapping;
+DROP TABLE backup_tables_priv;
+DROP TABLE backup_columns_priv;
+DROP TABLE backup_procs_priv;
+DROP TABLE backup_proxies_priv;
+DROP TABLE backup_db;
+FLUSH PRIVILEGES;
