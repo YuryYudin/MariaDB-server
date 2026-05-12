@@ -64,6 +64,28 @@ And that commit should have a commit message that's compliant with
 > If there's no Jira or no reference to it in your pull request
 > there might be delays in processing it
 
+#### Contribution Header Requirements ####
+
+Git supports adding "trailers" to a commit message. Contributors
+submitting pull requests that contain co-authored commits are
+**strongly encouraged** to add a specific "Co-Authored-By:"
+git commit message trailer for contributions that were co-authored.
+This is especially important for contributions that were co-authored by
+AI-assisted code generators, for example 
+```
+commit some-hash
+Author: Somebody <somebody@example.com>
+Date:   Mon Jun 30 16:41:18 2025 -0600
+
+    MDEV-00000: Something
+    
+    Explain what it is.
+    
+    Co-authored-by: Some Tool
+```
+You can also use the --trailer option to git commit to produce these.
+
+
 ## States of a Community Contribution ##
 
 ```mermaid
