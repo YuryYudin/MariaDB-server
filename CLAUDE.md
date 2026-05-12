@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Reviewing or writing code? Read [`.claude/review/`](.claude/review/README.md) first.**
+> That directory contains a distilled set of review-guidance documents extracted from 6 months of real PR feedback on this repository (~3,500 reviewer comments across 319 PRs). [`.claude/review/checklist.md`](.claude/review/checklist.md) is the quick pre-PR / pre-merge checklist; the topic files (`coding-style.md`, `correctness-and-security.md`, `innodb.md`, `testing.md`, `commit-and-process.md`, `api-and-architecture.md`, `logging-and-errors.md`, `build-and-cmake.md`, `anti-patterns.md`) cite real PRs for every rule.
+
 ## Repository identity
 
 This is **MariaDB Server** — a fork/drop-in replacement of MySQL maintained by the MariaDB Foundation and MariaDB Corporation. `origin` is `https://github.com/MariaDB/server`. The bug tracker lives at https://jira.mariadb.org and every change is tied to an `MDEV-NNNNN` ticket. License is GPLv2 only (no "any later version"). `VERSION` at the repo root encodes the marketing version (currently `13.0.1`, maturity `gamma`).
