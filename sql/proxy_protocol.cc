@@ -129,11 +129,15 @@ static int parse_v2_header(uchar *hdr, size_t len,proxy_peer_info *peer_info)
   switch (fam)
   {
     case 0x11:  /* TCPv4 */
+      if (len < 25)
+        return -1;
       sin->sin_family= AF_INET;
       memcpy(&(sin->sin_addr), hdr + 16, 4);
       peer_info->port= (hdr[24] << 8) + hdr[25];
       break;
     case 0x21:  /* TCPv6 */
+      if (len < 49)
+        return -1;
       sin6->sin6_family= AF_INET6;
       memcpy(&(sin6->sin6_addr), hdr + 16, 16);
       peer_info->port= (hdr[48] << 8) + hdr[49];

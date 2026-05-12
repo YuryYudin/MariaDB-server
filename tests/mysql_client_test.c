@@ -20570,9 +20570,9 @@ static void test_proxy_header_tcp(const char *ipaddr, int port)
   char query[256];
   char text_header[256], bad_text_header[256];
   char addr_bin[16];
-  v2_proxy_header v2_header;
-  void *header_data[3];
-  size_t header_lengths[3];
+  v2_proxy_header v2_header, bad_v2_header;
+  void *header_data[4];
+  size_t header_lengths[4];
   size_t i;
 
   // normalize IPv4-mapped IPv6 addresses, e.g ::ffff:127.0.0.2 to 127.0.0.2
@@ -20612,12 +20612,18 @@ static void test_proxy_header_tcp(const char *ipaddr, int port)
   header_data[0]= text_header;
   header_data[1]= &v2_header;
   header_data[2]= bad_text_header;
+  header_data[3]= &bad_v2_header;
 
   header_lengths[0]= strlen(text_header);
   header_lengths[1]= family == AF_INET ? 28 : 52;
   header_lengths[2]= sizeof(text_header)-4;
+  header_lengths[3]= header_lengths[1];
+
   memset(bad_text_header, ' ', sizeof(bad_text_header));
   memcpy(bad_text_header, text_header, header_lengths[1]-6);
+
+  bad_v2_header= v2_header;
+  bad_v2_header.len= 0;
 
   for (i = 0; i < 2; i++)
   {
@@ -20660,6 +20666,7 @@ static void test_proxy_header_tcp(const char *ipaddr, int port)
     printf("pass %zu error %i - %s\n", i, mysql_errno(m),
            mysql_error(m));
     DIE_IF(i == 2 && mysql_errno(m) != ER_UNKNOWN_ERROR);
+    DIE_IF(i == 3 && mysql_errno(m) != ER_UNKNOWN_ERROR);
     mysql_close(m);
   }
   sprintf(query,"DROP USER 'u'@'%s'",normalized_addr);
