@@ -217,7 +217,7 @@ int parse_proxy_protocol_header(NET *net, proxy_peer_info *peer_info)
     if (len < 0)
       return -1;
     // 2 last bytes are the length in network byte order of the part following header
-    ushort trail_len= ((ushort)hdr[PROXY_V2_HEADER_LEN-2] >> 8) + hdr[PROXY_V2_HEADER_LEN-1];
+    ushort trail_len= ((ushort)hdr[PROXY_V2_HEADER_LEN-2] << 8) + hdr[PROXY_V2_HEADER_LEN-1];
     if (trail_len > sizeof(hdr) - PROXY_V2_HEADER_LEN)
       return -1;
     if (trail_len > 0)
