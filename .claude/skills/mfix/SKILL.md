@@ -463,31 +463,15 @@ A single-operator walk through Phases 5–7 is not enough. Senior reviewers cons
 - Architecture mismatches with how the *adjacent* code path solves the same problem.
 - Replication / on-disk / wire-format byte divergence from the canonical writer for the "same" logical value.
 
-Stage the changes (don't commit yet — Phase 8 wraps that), then run **both** of these review agents in parallel against the staged diff:
+Stage the changes (don't commit yet — Phase 8 wraps that), then delegate to the [`mreview`](../mreview/SKILL.md) skill, which orchestrates the agent dispatch, severity merging, and verdict synthesis:
 
 ```
-Agent(subagent_type="pr-review-toolkit:code-reviewer",
-      prompt="Review the staged changes in /home/ggtest/Work/GridGain/MariaDB-server.
-              Target branch: <BRANCH>. Treat as a real PR review by a senior
-              MariaDB maintainer. Apply the rulebook at $RULEBOOK_DIR/*.md.
-              Specifically critique the choice of Option A vs B from Phase 5
-              — does it weaken the design? Output to /tmp/mfix-review-$TICKET.md
-              in this format: ## Verdict / ## Blockers / ## Important / ## Nits /
-              ## Design call-out / ## What worked well.")
-
-Agent(subagent_type="pr-review-toolkit:silent-failure-hunter",
-      prompt="Examine the staged changes in /home/ggtest/Work/GridGain/MariaDB-server.
-              Hunt for: silent rounding/truncation/loss; masking-a-different-bug;
-              NULL/error-path swallowing; replication or on-disk-format byte
-              divergence vs the canonical writer; boundary-case sign errors.
-              Trace at least 3 callers of any modified function. Numerically
-              verify any suspected corruption with a small C harness if needed.
-              Output to /tmp/mfix-sfh-$TICKET.md.")
+Skill mreview --staged --standard --no-profile --no-post
 ```
 
-These run in parallel; combined wall-time ~7 minutes. They have access to the rulebook in `$RULEBOOK_DIR/` and to the code on the target branch.
+That invocation runs `code-reviewer` + `silent-failure-hunter` in parallel against the staged diff, with the cached rulebook from `$RULEBOOK_DIR/`. Combined wall-time ~7 minutes. The report lands at `$HOME/.cache/mreview/<timestamp>/report.md` and the chat summary is printed inline. See `mreview/SKILL.md` for what the tiers and `--no-profile` flag do.
 
-**Read both reports before Phase 8.** Categorise findings:
+**Read the report before Phase 8.** Categorise findings by severity:
 
 | Severity | Action |
 |---|---|
@@ -502,7 +486,7 @@ Common patterns the agents catch that humans miss:
 - The "sibling type-handler already does the right thing at the caller level" architecture call.
 - The "your test only exercises the no-crash path, not the produced-value-correctness path" coverage gap.
 
-**Phase 7.5 deliverable**: both review reports read; all blockers resolved; remaining important/nit items recorded in a follow-up notebook (`$WORK_DIR/review-followups.md`). If a blocker exists, **do not proceed to Phase 8**.
+**Phase 7.5 deliverable**: `mreview` returned a verdict; all blockers resolved; remaining important/nit items recorded in a follow-up notebook (`$WORK_DIR/review-followups.md`) or addressed in code. If the verdict is `request-changes`, **do not proceed to Phase 8**.
 
 ## Phase 8 — Commit + PR
 
