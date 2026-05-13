@@ -46,6 +46,10 @@ GitHub-PR-only:
 
 - `--post` — after producing the draft, ask before posting via `gh pr review`. Default is to leave the draft on disk for manual editing.
 
+## Preconditions
+
+This skill must run in a context where the `Agent` tool is available — i.e. the main conversation (or any agent that itself has subagent dispatch). If `Agent` isn't reachable, Phase 3 will block. Confirm before starting: if you can't see `Agent` in the tool list, stop and tell the user. `gh` CLI is required only for `github_pr`/`mdev_lookup` targets; `jq` is required for every target.
+
 ## Hard rules
 
 - **One Skill invocation = one target.** Don't chain `mreview` calls. If you need to review three PRs, invoke the skill three times.

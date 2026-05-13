@@ -81,7 +81,30 @@ None in the skill pipeline. One reminder: `MREVIEW_WORK_DIR` must be exported in
 
 ## Run 3 — Fresh-subagent self-sufficiency
 
-(populated by Task 15)
+**Date**: 2026-05-13
+**Target**: commit `c8bfb4dbd298` ("MDEV-37949 fixup: possible GCC -Wconversion", 1-line diff in `storage/innobase/log/log0log.cc`)
+**Tier**: `--standard`
+**Operator**: a no-context `general-purpose` subagent given only `SKILL.md` and the target SHA.
+
+### Outcome
+
+Phases 0–2 executed cleanly with no ambiguity. The subagent dispatched a Phase 3 attempt but its harness did NOT expose the `Agent` tool (subagent contexts cannot dispatch sub-subagents), so it stopped at Phase 3 per the "Never fabricate findings" hard rule and produced a structured gap report instead of inventing agent output.
+
+### Verdict on self-sufficiency
+
+- Phases 0–2: ✅ self-sufficient.
+- Phase 3+: blocked by harness, not by SKILL.md ambiguity.
+
+### Action taken
+
+Added a "Preconditions" section to `SKILL.md` directly above "Hard rules", stating that the skill requires the `Agent` tool to be available — i.e. it must run in the main conversation (or in an agent that itself has subagent dispatch). This documents the implicit assumption that this run surfaced.
+
+### Other observations from the fresh subagent
+
+- The target-id rule ("PR number / short SHA / sanitized branch / timestamp") was clear; the subagent picked `c8bfb4d` (short SHA) without prompting.
+- The "no profile flags → run with no args" interpretation of `select-profiles.sh` was correct.
+- The subagent reported Phase 1's deliverable check (target.json + diff.patch + touched-paths.txt) was easy to verify.
+- No fabricated findings; no half-implementations.
 
 ## Run 4 — mfix Phase 7.5 integration
 
