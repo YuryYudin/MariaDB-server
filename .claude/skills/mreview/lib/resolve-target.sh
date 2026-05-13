@@ -243,11 +243,52 @@ case "$TYPE" in
     bash "$LIB_DIR/fetch-pr.sh" "${T[repo]}" "${T[pr_number]}"
     exit 0
     ;;
-  mdev_lookup|auto)
-    # Deferred: dispatch is handled by Task 5.
-    # Task 5 will write diff.patch and touched-paths.txt for these types.
+  mdev_lookup)
+    LIB_DIR="$(cd "$(dirname "$0")" && pwd)"
+    read -r REPO PRNUM < <(bash "$LIB_DIR/mdev-to-pr.sh" "${T[mdev]}")
+    T[type]=github_pr
+    T[repo]="$REPO"
+    T[pr_number]="$PRNUM"
     write_target_json
+    bash "$LIB_DIR/fetch-pr.sh" "$REPO" "$PRNUM"
     exit 0
+    ;;
+  auto)
+    # auto-detect resolves to one of: working, staged, working_and_staged,
+    # range, last_commit. Then we materialize accordingly.
+    LIB_DIR="$(cd "$(dirname "$0")" && pwd)"
+    while IFS='=' read -r ak av; do
+      [ -n "$ak" ] && T["$ak"]="$av"
+    done < <(bash "$LIB_DIR/auto-detect.sh")
+    write_target_json
+    case "${T[type]}" in
+      working)
+        git diff > "$DIFF_TMP"
+        git diff --name-only | awk 'NF' > "$PATHS_TMP"
+        ;;
+      staged)
+        git diff --cached > "$DIFF_TMP"
+        git diff --cached --name-only | awk 'NF' > "$PATHS_TMP"
+        ;;
+      working_and_staged)
+        git diff HEAD > "$DIFF_TMP"
+        git diff HEAD --name-only | awk 'NF' > "$PATHS_TMP"
+        ;;
+      last_commit)
+        git show --first-parent "${T[sha]}" > "$DIFF_TMP"
+        git show --first-parent --name-only --format= "${T[sha]}" | awk 'NF' > "$PATHS_TMP"
+        ;;
+      range)
+        git diff "${T[base]}..${T[head]}" > "$DIFF_TMP"
+        git diff --name-only "${T[base]}..${T[head]}" | awk 'NF' > "$PATHS_TMP"
+        ;;
+      *)
+        echo "resolve-target.sh: auto-detect returned unknown type '${T[type]}'" >&2
+        exit 1
+        ;;
+    esac
+    mv "$DIFF_TMP" "$WORK_DIR/diff.patch"
+    mv "$PATHS_TMP" "$WORK_DIR/touched-paths.txt"
     ;;
   *)
     echo "resolve-target.sh: unknown classified type '$TYPE'" >&2
