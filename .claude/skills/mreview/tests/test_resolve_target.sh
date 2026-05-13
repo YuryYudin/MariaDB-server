@@ -227,26 +227,32 @@ rm -rf "$WD"
 pass
 
 case_start "C: --staged with nothing staged -> exit 66, 'diff is empty'"
+# Run against a throwaway repo so we never touch the user's working tree.
+TMP_REPO=$(mktemp -d)
 WD=$(mktemp -d)
-# Ensure no staged changes. If there are any, stash them for the duration of
-# this test only.
-stash_pushed=0
-if ! git diff --cached --quiet; then
-  git stash push --keep-index --include-untracked --quiet -- 2>/dev/null || true
-  # Drop the staged-and-untracked stash and create a clean cached state.
-  git reset --quiet || true
-  stash_pushed=1
-fi
-rc=0
-err=$(MREVIEW_WORK_DIR="$WD" bash "$SCRIPT" --staged 2>&1 >/dev/null) || rc=$?
+sub_status=0
+out_and_err=$(
+  cd "$TMP_REPO"
+  git init --quiet
+  git config user.email t@t
+  git config user.name t
+  echo init > a
+  git add a
+  git -c commit.gpgsign=false commit --quiet -m init
+  # Nothing is staged now.
+  rc=0
+  err=$(MREVIEW_WORK_DIR="$WD" bash "$SCRIPT" --staged 2>&1 >/dev/null) || rc=$?
+  printf 'rc=%s\n' "$rc"
+  printf 'err=%s\n' "$err"
+) || sub_status=$?
+[ "$sub_status" -eq 0 ] || fail "subshell exited non-zero: $sub_status"
+rc=$(printf '%s\n' "$out_and_err" | sed -n 's/^rc=//p')
+err=$(printf '%s\n' "$out_and_err" | sed -n 's/^err=//p')
 assert_eq "$rc" "66"
 assert_contains "$err" "diff is empty"
 # target.json must still be written before the empty-diff check.
 [ -s "$WD/target.json" ] || fail "target.json should be written even on empty-diff exit"
-if [ "$stash_pushed" -eq 1 ]; then
-  git stash pop --quiet 2>/dev/null || true
-fi
-rm -rf "$WD"
+rm -rf "$WD" "$TMP_REPO"
 pass
 
 case_start "D: --working (tolerant) -> rc==0 with diff.patch OR rc==66 'diff is empty'"
@@ -283,6 +289,28 @@ rc=0
 err=$(env -u MREVIEW_WORK_DIR bash "$SCRIPT" "$(git rev-parse HEAD)" 2>&1 >/dev/null) || rc=$?
 assert_eq "$rc" "64"
 assert_contains "$err" "MREVIEW_WORK_DIR"
+pass
+
+case_start "G: root commit with no file changes -> exit 66"
+TMP_REPO=$(mktemp -d)
+WD=$(mktemp -d)
+sub_status=0
+out_and_err=$(
+  cd "$TMP_REPO"
+  git init --quiet
+  git config user.email t@t
+  git config user.name t
+  git -c commit.gpgsign=false commit --allow-empty --quiet -m empty
+  empty_sha=$(git rev-parse HEAD)
+  rc=0
+  err=$(MREVIEW_WORK_DIR="$WD" bash "$SCRIPT" "$empty_sha" 2>&1 >/dev/null) || rc=$?
+  printf 'rc=%s\n' "$rc"
+  printf 'err=%s\n' "$err"
+) || sub_status=$?
+[ "$sub_status" -eq 0 ] || fail "subshell exited non-zero: $sub_status"
+rc=$(printf '%s\n' "$out_and_err" | sed -n 's/^rc=//p')
+assert_eq "$rc" "66"
+rm -rf "$WD" "$TMP_REPO"
 pass
 
 # ----- summary -----

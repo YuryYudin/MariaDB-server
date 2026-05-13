@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Phase 1 — Resolve target. Classifies a raw user argument into a structured
 # target description. In --dry-run mode, prints key=value lines to stdout and
-# exits. In non-dry-run mode (Task 3), it will materialize $WORK_DIR/target.json
-# and $WORK_DIR/diff.patch.
+# exits. In non-dry-run mode (Task 3), it materializes $WORK_DIR/target.json,
+# $WORK_DIR/diff.patch and $WORK_DIR/touched-paths.txt.
 set -euo pipefail
 
 DRY_RUN=0
@@ -178,29 +178,43 @@ write_target_json() {
   jq -n "${args[@]}" '$ARGS.named' > "$WORK_DIR/target.json"
 }
 
+# Stage artifacts to .tmp files and mv on success so a failing git command
+# leaves WORK_DIR clean instead of half-written placeholders.
+DIFF_TMP="$WORK_DIR/diff.patch.$$"
+PATHS_TMP="$WORK_DIR/touched-paths.txt.$$"
+trap 'rm -f "$DIFF_TMP" "$PATHS_TMP"' EXIT
+
 case "$TYPE" in
   commit)
     SHA="${T[sha]}"
     write_target_json
-    git show --first-parent "$SHA" > "$WORK_DIR/diff.patch"
-    git show --first-parent --name-only --format= "$SHA" > "$WORK_DIR/touched-paths.txt"
+    git show --first-parent "$SHA" > "$DIFF_TMP"
+    git show --first-parent --name-only --format= "$SHA" | awk 'NF' > "$PATHS_TMP"
+    mv "$DIFF_TMP" "$WORK_DIR/diff.patch"
+    mv "$PATHS_TMP" "$WORK_DIR/touched-paths.txt"
     ;;
   range)
     BASE="${T[base]}"
     HEAD_REF="${T[head]}"
     write_target_json
-    git diff "${BASE}..${HEAD_REF}" > "$WORK_DIR/diff.patch"
-    git diff --name-only "${BASE}..${HEAD_REF}" > "$WORK_DIR/touched-paths.txt"
+    git diff "${BASE}..${HEAD_REF}" > "$DIFF_TMP"
+    git diff --name-only "${BASE}..${HEAD_REF}" | awk 'NF' > "$PATHS_TMP"
+    mv "$DIFF_TMP" "$WORK_DIR/diff.patch"
+    mv "$PATHS_TMP" "$WORK_DIR/touched-paths.txt"
     ;;
   staged)
     write_target_json
-    git diff --cached > "$WORK_DIR/diff.patch"
-    git diff --cached --name-only > "$WORK_DIR/touched-paths.txt"
+    git diff --cached > "$DIFF_TMP"
+    git diff --cached --name-only | awk 'NF' > "$PATHS_TMP"
+    mv "$DIFF_TMP" "$WORK_DIR/diff.patch"
+    mv "$PATHS_TMP" "$WORK_DIR/touched-paths.txt"
     ;;
   working)
     write_target_json
-    git diff > "$WORK_DIR/diff.patch"
-    git diff --name-only > "$WORK_DIR/touched-paths.txt"
+    git diff > "$DIFF_TMP"
+    git diff --name-only | awk 'NF' > "$PATHS_TMP"
+    mv "$DIFF_TMP" "$WORK_DIR/diff.patch"
+    mv "$PATHS_TMP" "$WORK_DIR/touched-paths.txt"
     ;;
   branch)
     BRANCH="${T[branch]}"
@@ -218,16 +232,15 @@ case "$TYPE" in
     fi
     T[base]="$BASE"
     write_target_json
-    git diff "${BASE}..${BRANCH}" > "$WORK_DIR/diff.patch"
-    git diff --name-only "${BASE}..${BRANCH}" > "$WORK_DIR/touched-paths.txt"
+    git diff "${BASE}..${BRANCH}" > "$DIFF_TMP"
+    git diff --name-only "${BASE}..${BRANCH}" | awk 'NF' > "$PATHS_TMP"
+    mv "$DIFF_TMP" "$WORK_DIR/diff.patch"
+    mv "$PATHS_TMP" "$WORK_DIR/touched-paths.txt"
     ;;
   github_pr|mdev_lookup|auto)
     # Deferred: dispatch is handled by later tasks (4 and 5).
+    # Task 4/5 will write diff.patch and touched-paths.txt for these types.
     write_target_json
-    # Touch diff.patch / touched-paths.txt so callers can detect "not produced
-    # yet" via emptiness if they wish, but skip the empty-diff check below.
-    : > "$WORK_DIR/diff.patch"
-    : > "$WORK_DIR/touched-paths.txt"
     exit 0
     ;;
   *)
@@ -237,7 +250,10 @@ case "$TYPE" in
 esac
 
 # Empty-diff fast fail (only for the locally-resolvable types above).
-if [[ ! -s "$WORK_DIR/diff.patch" ]]; then
+# A commit can produce a non-empty `git show` header (commit metadata) while
+# touching no files at all — so require BOTH the diff body AND the path list
+# to be non-empty.
+if [[ ! -s "$WORK_DIR/diff.patch" || ! -s "$WORK_DIR/touched-paths.txt" ]]; then
   echo "diff is empty — nothing to review" >&2
   exit 66
 fi
