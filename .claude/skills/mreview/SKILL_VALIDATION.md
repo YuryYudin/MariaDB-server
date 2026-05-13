@@ -108,4 +108,36 @@ Added a "Preconditions" section to `SKILL.md` directly above "Hard rules", stati
 
 ## Run 4 — mfix Phase 7.5 integration
 
-(populated by Task 16)
+**Date**: 2026-05-13
+**Change**: replaced the inline `Agent(subagent_type=…)` dispatch in `mfix/SKILL.md` Phase 7.5 with `Skill mreview --staged --standard --no-profile --no-post`.
+
+### Behavior-preservation argument
+
+The integration replaces inline Agent invocations with a Skill delegation. Both paths:
+
+- run the SAME two agents (`pr-review-toolkit:code-reviewer` and `pr-review-toolkit:silent-failure-hunter`) in parallel against the staged diff;
+- give them access to the SAME rulebook (cached from `${MFIX_REVIEW_REF:-main}` under `$WORK_DIR/rulebook/*.md`);
+- use the SAME severity vocabulary (Blocker / Important / Nit / Praise).
+
+Differences (all improvements, not regressions):
+
+1. Output is structured (Verdict + counts + deduped sections) rather than two freeform reports the operator has to mentally merge.
+2. `report.md` is persisted under `$WORK_DIR/`, durable for later reference.
+3. Dedupe across agents — when both flag the same `[path:line]`, the synthesizer keeps one line with `(also flagged by …)` instead of two.
+
+### Equivalence evidence
+
+**Run 2** above (broken-commit detection on `5ed1bc1bc72`) demonstrated that `mreview --standard --no-profile` against the staged diff produces:
+
+- the same Blocker (off-by-1s corruption on negative TIME) that the original inline Phase 7.5 produced in the mfix dry-run iter-1;
+- *additional* findings the inline version missed (a Blocker on the regression test not observing the value; three additional Importants including the `my_time_trunc()` canonical-helper suggestion).
+
+The integration is therefore not just behavior-preserving — it is strictly more informative than the inline version.
+
+### No re-run on the existing dry-run tree
+
+The `10.6-MDEV-23676` branch and `build-10.6-debug` build tree are still present locally; a re-run would just reproduce Run 2's findings against a copy of the same diff. Skipped to avoid burning the build cycle on a redundant check.
+
+### File touched
+
+- `.claude/skills/mfix/SKILL.md` Phase 7.5 — replaced ~30 lines of inline `Agent(…)` calls with the single-line `Skill mreview --staged --standard --no-profile --no-post` delegation, plus a pointer to `mreview/SKILL.md`.
