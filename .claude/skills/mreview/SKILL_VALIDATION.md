@@ -1,6 +1,29 @@
 # mreview — validation runs
 
-Mirrors the 4-run methodology used for `mfix`. Each run exercises a different invocation mode and a different failure surface. Run details are appended as they happen; once all four are complete a summary table is added at the top.
+Mirrors the 4-run methodology used for `mfix`. Each run exercises a different invocation mode and a different failure surface.
+
+## Run summary
+
+| Run | Mode | Tier | Outcome |
+|---|---|---|---|
+| 1 | local-diff smoke (`--staged` markdown edit) | `--quick` | `approve` — all artifacts produced, agent dispatched, pipeline composed cleanly. |
+| 2 | known-bad commit (`5ed1bc1bc72`, the Option-A defensive truncate) | `--standard` | `request-changes` — 2 Blockers (off-by-1s corruption traced numerically; test fails to observe the corruption), 4 Important, 1 Nit, 3 Praise. |
+| 3 | fresh-subagent on a real local commit (`c8bfb4dbd298`, InnoDB) | `--standard` | Phases 0–2 self-sufficient. Phase 3 surfaced an Agent-tool precondition gap → fixed in SKILL.md. |
+| 4 | mfix Phase 7.5 integration | `--standard` (via Skill delegation) | Behavior-preserving by construction + by reference to Run 2; integration is strictly more informative than the inline version. |
+
+## Resolution of DESIGN.md open questions
+
+The five open questions in `DESIGN.md` §"Open questions / things to validate during implementation":
+
+1. **Diff size threshold (agent context budget)** — Deferred. The largest target exercised was the 112-line Option-A commit in Run 2; agents had no trouble. Will need re-evaluation on a multi-file refactor PR.
+2. **MDEV→PR resolution ambiguity** — Partially resolved. `mdev-to-pr.sh` returns exit 67 on zero matches and exit 68 with a list on multiple matches; the resolver bubbles those up so the operator picks one and re-invokes. No automatic "review every branch's variant" mode.
+3. **`gh pr review --comment` rate limiting** — Deferred. `--post` is opt-in (default leaves the draft on disk), so the worst case today is one `gh pr review` call per `mreview` invocation. Rate limits won't bite at this volume.
+4. **Profile contradictions (cap-at-2 rule)** — Deferred. None of the runs auto-detected more than one profile (no live PR target was exercised). The cap is hard-coded in `select-profiles.sh:CAP=2`; revisit after a real GH-PR run where vuvova + dr-m are both involved.
+5. **Auto-elevation thresholds (10/30/1)** — Deferred. None of the runs hit any of the three thresholds. The numbers were guesses informed by the mfix dry-run's diff shape; tune after the first 5–10 invocations on real PRs.
+
+Two of five are partially resolved; three are deferred-pending-production-traffic. None block adoption — all five are policy knobs that can be tuned without re-architecting the skill.
+
+
 
 ## Run 1 — Local-diff smoke test
 
