@@ -182,6 +182,36 @@ bash "$SCRIPT" >/dev/null 2>&1 || rc=$?
 assert_eq "$rc" "64"
 pass
 
+case_start "8: TAB in body is sanitized to space (no TSV corruption)"
+fresh_workdir
+# Use printf so the \t becomes a literal tab character in the agent file.
+printf -- '- **Important** [sql/x.cc:1] foo\tbar baz. (cited from c.md)\n' \
+  > "$WD/agents/code-reviewer.md"
+out=$(bash "$SCRIPT" 2>&1)
+rc=$?
+assert_eq "$rc" "0"
+if [ "$rc" -eq 0 ]; then
+  assert_grep "$WD/report.md" 'by code-reviewer'
+  assert_grep "$WD/report.md" 'foo bar baz'
+fi
+cleanup_workdir "$WD"
+pass
+
+case_start "9: same-agent same-location duplicate doesn't say 'also flagged by <same agent>'"
+fresh_workdir
+cat > "$WD/agents/code-reviewer.md" <<'EOF'
+- **Important** [sql/x.cc:10] First body. (cited from c.md)
+- **Important** [sql/x.cc:10] Second body. (cited from c.md)
+EOF
+out=$(bash "$SCRIPT" 2>&1)
+rc=$?
+assert_eq "$rc" "0"
+if [ "$rc" -eq 0 ]; then
+  assert_not_grep "$WD/report.md" 'also flagged by code-reviewer'
+fi
+cleanup_workdir "$WD"
+pass
+
 # ----- summary -----
 echo "---"
 echo "$((total-fails))/$total passed"
