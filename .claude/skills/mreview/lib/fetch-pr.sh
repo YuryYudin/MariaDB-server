@@ -57,7 +57,7 @@ fi
 
 # Derive touched paths from the diff. The spec uses awk's $3 (the "a/<path>"
 # field) with the "a/" prefix stripped.
-awk '/^diff --git / { sub("a/", "", $3); print $3 }' "$DIFF_TMP" > "$PATHS_TMP"
+awk '/^diff --git / { sub(/^a\//, "", $3); print $3 }' "$DIFF_TMP" > "$PATHS_TMP"
 
 mv "$META_TMP"     "$WORK_DIR/pr-meta.json"
 mv "$COMMENTS_TMP" "$WORK_DIR/pr-existing-comments.json"
