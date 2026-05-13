@@ -3739,6 +3739,30 @@ sp_decl_variable_list:
             $$.init_using_vars($1);
           }
         | sp_decl_variable_list_anchored
+        | sp_decl_idents_init_vars
+          sp_decl_ident '.' ident
+          sp_opt_default
+          {
+            if (unlikely(Lex->sp_variable_declarations_qualified_finalize(
+                                                                thd, $1,
+                                                                $2, $4,
+                                                                $5.expr,
+                                                                $5.expr_str)))
+              MYSQL_YYABORT;
+            $$.init_using_vars($1);
+          }
+        | sp_decl_idents_init_vars
+          sp_decl_ident '.' ident '.' ident
+          sp_opt_default
+          {
+            if (unlikely(Lex->sp_variable_declarations_qualified_finalize(
+                                                                thd, $1,
+                                                                $2, $4, $6,
+                                                                $7.expr,
+                                                                $7.expr_str)))
+              MYSQL_YYABORT;
+            $$.init_using_vars($1);
+          }
         ;
 
 sp_decl_handler:
@@ -20349,7 +20373,7 @@ package_implementation_routine_definition:
             pkg->m_current_routine= NULL;
             $$.init();
           }
-        | package_specification_element { $$.init(); }
+        | package_specification_routine { $$.init(); }
         ;
 
 
@@ -20402,7 +20426,7 @@ package_specification_element_list:
         | package_specification_element_list package_specification_element
         ;
 
-package_specification_element:
+package_specification_routine:
           FUNCTION_SYM package_specification_function ';'
           {
             sp_package *pkg= Lex->get_sp_package();
@@ -20417,6 +20441,13 @@ package_specification_element:
               MYSQL_YYABORT;
             pkg->m_current_routine= NULL;
           }
+        ;
+
+package_specification_element:
+          package_specification_routine
+%ifdef ORACLE
+        | sp_decl_type ';'
+%endif
         ;
 
 

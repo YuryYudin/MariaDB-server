@@ -1,0 +1,94 @@
+SET sql_mode=ORACLE;
+
+--echo #
+--echo # MDEV-39587 Package-wide TYPE for variable declarations
+--echo #
+
+# TODO: cross package declarations
+# TODO: all from assoc_array_table_types:
+#   field_type_all_with_typedefs
+#   sp_decl_ident '.' ident PERCENT_ORACLE_SYM TYPE_SYM
+#   sp_decl_ident '.' ident '.' ident PERCENT_ORACLE_SYM TYPE_SYM
+#   ident PERCENT_ORACLE_SYM ROWTYPE_ORACLE_SYM
+#   sp_decl_ident '.' ident PERCENT_ORACLE_SYM ROWTYPE_ORACLE_SYM
+#
+# TODO: IS REF CURSOR RETURN t1%ROWTYPE;
+#
+
+CREATE TABLE t1 (a INT, b VARCHAR(30));
+
+DELIMITER $$;
+CREATE PACKAGE pkg1 AS
+  TYPE varchar_array IS TABLE OF VARCHAR(2000) INDEX BY INTEGER;
+  TYPE rec0_t IS RECORD(a INT, b VARCHAR(30));
+  TYPE rec0_array_t IS TABLE OF rec0_t INDEX BY INTEGER;
+  TYPE cur0_t IS REF CURSOR;
+  TYPE cur1_t IS REF CURSOR RETURN rec0_t;
+  TYPE cur2_t IS REF CURSOR RETURN test.t1%ROWTYPE;
+END;
+$$
+DELIMITER ;$$
+
+DELIMITER $$;
+CREATE PROCEDURE p1 AS
+  v0 pkg1.varchar_array;
+  v1 pkg1.rec0_t;
+  v2 pkg1.rec0_array_t;
+  c0 pkg1.cur0_t;
+  c1 pkg1.cur1_t;
+  c2 pkg1.cur2_t;
+  fetch0 INT;
+  fetch1 VARCHAR(30);
+BEGIN
+  v0(0):='test';
+  SELECT v0(0);
+  v1.a:= 1;
+  v1.b:= 'b';
+  SELECT v1.a, v1.b;
+  v2(0):= v1;
+  SELECT v2(0).a, v2(0).b;
+
+  OPEN c0 FOR SELECT 10,'bb0';
+  FETCH c0 INTO fetch0, fetch1;
+  SELECT fetch0, fetch1;
+  CLOSE c0;
+
+  OPEN c1 FOR SELECT 11,'bb1';
+  FETCH c1 INTO fetch0, fetch1;
+  SELECT fetch0, fetch1;
+  CLOSE c1;
+
+  OPEN c2 FOR SELECT 12,'bb2';
+  FETCH c2 INTO fetch0, fetch1;
+  SELECT fetch0, fetch1;
+  CLOSE c2;
+
+END;
+$$
+DELIMITER ;$$
+
+CALL p1;
+
+DROP PROCEDURE p1;
+DROP PACKAGE pkg1;
+
+
+# TODO
+#DELIMITER $$;
+#CREATE PACKAGE pkg1 AS
+#  TYPE rec0_t IS RECORD (a INT, b VARCHAR(32));
+#END;
+#$$
+#DELIMITER ;$$
+#
+#DELIMITER $$;
+#CREATE PACKAGE pkg2 AS
+#  TYPE rec0_t IS TABLE OF pkg1.rec0_t INDEX BY INTEGER;
+#END;
+#$$
+#DELIMITER ;$$
+#
+#DROP PACKAGE pkg2;
+#DROP PACKAGE pkg1;
+
+DROP TABLE t1;

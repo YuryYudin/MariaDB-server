@@ -4041,6 +4041,23 @@ public:
                                          const Column_definition *cdef,
                                          Item *def,
                                          const LEX_CSTRING &expr_str);
+  bool sp_variable_declarations_qualified_finalize(THD *thd, int nvars,
+                                         const Lex_ident_db_normalized &db,
+                                         const Lex_ident_sys_st &package,
+                                         const Lex_ident_sys_st &type,
+                                         Item *def,
+                                         const LEX_CSTRING &expr_str);
+  bool sp_variable_declarations_qualified_finalize(THD *thd, int nvars,
+                                         const Lex_ident_sys_st &db,
+                                         const Lex_ident_sys_st &package,
+                                         const Lex_ident_sys_st &type,
+                                         Item *def,
+                                         const LEX_CSTRING &expr_str);
+  bool sp_variable_declarations_qualified_finalize(THD *thd, int nvars,
+                                         const Lex_ident_sys_st &package,
+                                         const Lex_ident_sys_st &type,
+                                         Item *def,
+                                         const LEX_CSTRING &expr_str);
   bool sp_variable_declarations_set_default(THD *thd, int nvars, Item *def,
                                             const LEX_CSTRING &expr_str);
   bool sp_set_assign_lvalue_function(THD *thd,

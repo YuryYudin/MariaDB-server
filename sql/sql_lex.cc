@@ -50,6 +50,21 @@ void LEX::parse_error(uint err_number)
 }
 
 
+// TODO-TYPE: move as a method
+// e.g. to Qualified_ident ?
+static void raise_unknown_type(const Lex_ident_db_normalized &db,
+                               const Lex_ident_sys_st &package,
+                               const Lex_ident_sys_st &type)
+{
+  char buf[128];
+  my_snprintf(buf, sizeof(buf), "%.*sQ.%.*sQ.%.*sQ",
+              (int) db.length, db.str,
+              (int) package.length, package.str,
+              (int) type.length, type.str);
+  my_error(ER_UNKNOWN_DATA_TYPE, MYF(0), buf);
+}
+
+
 /**
   LEX_STRING constant for null-string to be used in parser and other places.
 */
@@ -7099,6 +7114,63 @@ bool LEX::sp_variable_declarations_finalize(THD *thd, int nvars,
     return true;
   spcont->declare_var_boundary(0);
   return sphead->restore_lex(thd);
+}
+
+
+bool LEX::sp_variable_declarations_qualified_finalize(THD *thd, int nvars,
+                                           const Lex_ident_db_normalized &db,
+                                           const Lex_ident_sys_st &package,
+                                           const Lex_ident_sys_st &type,
+                                           Item *def,
+                                           const LEX_CSTRING &expr_str)
+{
+  sp_type_def *tdef;
+  sp_package *spec= Sp_handler::find_package_spec(thd, db, package);
+  if (!spec || !(tdef= spec->get_parse_context()->child_context(0)->
+                                                   find_type_def(type, false)))
+  {
+    raise_unknown_type(db, package, type);
+    return true;
+  }
+  Lex_field_type_st lex_field_type;
+  lex_field_type.set(tdef->type_handler(), nullptr/*CHARSET_INFO*/);
+  // TODO
+  // last_field->set_attr_const_void_ptr(0, tdef);
+  last_field->set_attr_const_generic_ptr(0, tdef);
+  last_field->set_attributes(thd, lex_field_type,
+                             COLUMN_DEFINITION_ROUTINE_LOCAL);
+  return sp_variable_declarations_finalize(thd, nvars,
+                                           last_field, def, expr_str);
+}
+
+
+bool LEX::sp_variable_declarations_qualified_finalize(THD *thd, int nvars,
+                                                const Lex_ident_sys_st &db,
+                                                const Lex_ident_sys_st &package,
+                                                const Lex_ident_sys_st &type,
+                                                Item *def,
+                                                const LEX_CSTRING &expr_str)
+{
+  Lex_ident_db_normalized dbn= thd->to_ident_db_normalized_with_error(db);
+  return sp_variable_declarations_qualified_finalize(thd, nvars,
+                                                     dbn, package, type,
+                                                     def, expr_str);
+}
+
+
+bool LEX::sp_variable_declarations_qualified_finalize(THD *thd, int nvars,
+                                                const Lex_ident_sys_st &package,
+                                                const Lex_ident_sys_st &type,
+                                                Item *def,
+                                                const LEX_CSTRING &expr_str)
+{
+  Lex_ident_db_normalized dbn= copy_db_normalized();
+  if (!dbn.str)
+    return true; // Current DB is not set
+  Lex_ident_sys db_sys(dbn.str, dbn.length); // TODO: resolve through path?
+  return sp_variable_declarations_qualified_finalize(thd, nvars, db_sys,
+                                                     package, type,
+                                                     def, expr_str);
 }
 
 
