@@ -44,7 +44,40 @@ The staged smoke marker was unstaged and reverted; `git diff --stat` confirms no
 
 ## Run 2 — Same-session: broken-commit detection
 
-(populated by Task 14)
+**Date**: 2026-05-13
+**Target**: commit `5ed1bc1bc72` — "MDEV-23676 Truncate fractional precision in Time::to_native()", the Option-A defensive packed-form truncate that mfix iter-1 produced and that was rejected after silent-failure-hunter detected an off-by-1-second corruption on negative TIME inputs.
+**Tier**: `--standard` (code-reviewer + silent-failure-hunter)
+**Operator**: live session executing PLAN.md Task 14, helpers invoked manually.
+
+### Pipeline trace
+
+| Phase | Result |
+|---|---|
+| 0 | `$WORK_DIR=/home/ggtest/.cache/mreview/5ed1bc1bc72-validation`; rulebook (11 files) + profiles (1) cached from `main`. |
+| 1 | `target.json={"type":"commit","sha":"5ed1bc1bc722…"}`; `diff.patch` 112 lines (`sql/sql_type.cc`, `mysql-test/main/type_time_hires.{test,result}`); `touched-paths.txt` 3 entries. |
+| 2 | Areas: `mysql-test/`, `sql/`. Rulebook loaded: 6 files (4 baseline + `testing.md` + `api-and-architecture.md`). Profiles: none (`--no-profile`). |
+| 3 | `tier-agents.sh standard` → `code-reviewer`, `silent-failure-hunter`. Dispatched in parallel. |
+| 4 | Synthesize merged the two reports. |
+| 5 | Chat summary printed. |
+
+### Findings
+
+| Severity | Count | Notable items |
+|---|---:|---|
+| Blocker | 2 | (a) Numerical off-by-1s corruption for negative TIME inputs, with worked example `-00:00:00.123456 → -00:00:01.123`, traced through `TIME_to_longlong_time_packed → MY_PACKED_TIME_GET_INT_PART/FRAC_PART → MY_PACKED_TIME_MAKE`. (b) The new MTR regression test outputs `NULL` and therefore never observes the corrupted value. |
+| Important | 4 | (a) Preferred fix points at the existing `my_time_trunc()` helper. (b) Truncation site emits no warning. (c) Test marker `End of 10.6 tests` mismatched with the `main` branch the change is on. (d) C-style cast `(int)` in C++ code. |
+| Nit | 1 | Narrowing cast at line 754. |
+| Praise | 3 | Code comment quality, test minimality, JIRA-aligned reproducer. |
+
+**Verdict**: `request-changes`.
+
+### Conclusion
+
+`--standard` tier surfaces what `--quick` would miss. The silent-failure-hunter agent reasoned at a deeper level than the original mfix iter-1 inline review — it cited the canonical helper to use, gave a full numerical trace, and noticed that the regression test does not even observe the bug. The verdict and findings are consistent with the human conclusion that drove Option-A → Option-B in the mfix dry-run.
+
+### Bugs surfaced
+
+None in the skill pipeline. One reminder: `MREVIEW_WORK_DIR` must be exported in the shell where Phases 4 and 5 run (already noted in Run 1 and in `SKILL.md`).
 
 ## Run 3 — Fresh-subagent self-sufficiency
 
