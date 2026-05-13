@@ -201,6 +201,7 @@ This is the dominant workflow for external-contributor PRs:
 | **Replication / binlog / GTID** | `bnestere`, `andrelkin`, `knielsen` |
 | **Galera / WSREP** | `janlindstrom`, `sjaakola`, `mariadb-TeemuOllakka` |
 | **ACL / vector / charset / server core** | `vuvova` |
+| **Temporal types / Data types / Type system** | `vuvova` (historically `bar` = Alexander Barkov for older commits) |
 | **Client / build / packaging** | `svoj`, `grooverdan` |
 | **Windows / byte-order / threadpool / build** | `vaintroub` |
 | **MDL** | `svoj` |

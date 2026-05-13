@@ -40,12 +40,13 @@ Every test gets a `--echo` MDEV header and an end-of-version marker. They make m
   - PR4789 grooverdan: "I'd move this test to part of mysql-test/main/create.test at end, with a: `--echo # --echo # MDEV-x....`"
   - PR4804 gkodinov: "we customarily start with a heading stating the MDEV."
   - PR4829 grooverdan: "this would be an `--echo # MDEV....` line. Include a `--echo #` before and after to make this stand out."
-- **Footer**: `--echo # End of <maj.min> tests`. **One line**, not a 3-line decoration block.
+- **Footer**: `--echo # End of <maj.min> tests`. The *marker line itself* is one line — don't surround it with decorative `--echo ===` bars or repeated marker lines. The bare `--echo #` blank-comment frame around it (`--echo #` / `--echo # End of M.m tests` / `--echo #`) is project-normal in many existing files. **Match the file's existing footer style** — mixing within a single file is worse than picking either. If the file is new or has only single-line markers, use the single-line style.
   - PR4711 grooverdan: "The final statement in a test case is `--echo End of 13.0 tests`. For the purpose of ease of merging..."
   - PR4743 vuvova: "one line for the end marker, not three. Just `--echo # End of 11.8 tests`."
   - PR4710 grooverdan: "now that its rebased - 11.8 the end."
   - PR4714 grooverdan: "move this added test to below the `End of 11.7 tests` line, add a `End of 11.8 tests`."
   - PR4904 gkodinov: "We also customarily add a `--echo # End of MA.MI tests` at the end: helps conflict resolution when merging up and down."
+  - **Context**: MDEV-29924's accepted fix (commit `1a3859fff09`, by vuvova) added a 3-line frame in `mysql-test/main/type_time_hires.test`. The "one line" preference is contextual.
 - **Terminate the last line with a newline.** Git complains otherwise.
   - PR4810 gkodinov: "please always terminate the last time of tests."
   - PR4829 gkodinov: "Please always terminate the last line of a test file."
