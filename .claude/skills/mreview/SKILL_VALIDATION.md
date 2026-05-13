@@ -1,0 +1,55 @@
+# mreview — validation runs
+
+Mirrors the 4-run methodology used for `mfix`. Each run exercises a different invocation mode and a different failure surface. Run details are appended as they happen; once all four are complete a summary table is added at the top.
+
+## Run 1 — Local-diff smoke test
+
+**Date**: 2026-05-13
+**Target**: `--staged` (a 2-line HTML comment marker appended to `.claude/skills/mreview/SKILL.md`)
+**Tier**: `--quick`
+**Operator**: live session executing PLAN.md Task 13 end-to-end. Helpers invoked manually in sequence (Skill tool can't yet load the freshly-written skill; this is a known limitation, not a skill defect).
+
+### Pipeline trace
+
+| Phase | Command | Result |
+|---|---|---|
+| 0 | `lib/setup-workdir.sh 20260513-192217-smoke` | `$WORK_DIR=/home/ggtest/.cache/mreview/20260513-192217-smoke`. `rulebook/` populated (11 files), `profiles/` populated (1 file: `vuvova.md`), `agents/` created empty. |
+| 1 | `lib/resolve-target.sh --staged` | `target.json={"type":"staged"}`, `diff.patch` = 10 lines, `touched-paths.txt` = `.claude/skills/mreview/SKILL.md`. |
+| 2a | `lib/derive-areas.sh touched-paths.txt > touched-areas.txt` | Empty (markdown under `.claude/skills/`, not in any classified area). |
+| 2b | `MREVIEW_DIFF=… lib/select-rulebook.sh touched-areas.txt > loaded-rulebook.txt` | 4 baseline files: `checklist.md`, `commit-and-process.md`, `coding-style.md`, `anti-patterns.md`. |
+| 2c | `lib/select-profiles.sh --no-profile > loaded-profiles.txt` | Empty. |
+| 3 | `lib/tier-agents.sh quick diff.patch touched-paths.txt > dispatch.txt` | One agent: `code-reviewer`. |
+| 3 (dispatch) | Agent tool with `subagent_type=pr-review-toolkit:code-reviewer` and the common prompt template from `SKILL.md` | Wrote `agents/code-reviewer.md`, zero findings (nothing citable in the loaded rulebook for an HTML-comment addition to a markdown file). |
+| 4 | `lib/synthesize.sh` | `report.md` produced: `**Verdict: approve**`, all counts 0, all severity sections show `_(none)_`. Per-agent appendix contains the verbatim agent report. |
+| 5 | `lib/present.sh` | Printed the report to stdout (up to but not including the appendix). No `github-draft.md` created (target.type ≠ github_pr). |
+
+### Outcome
+
+- All Phase 0–5 deliverables produced.
+- Real `pr-review-toolkit:code-reviewer` agent dispatched and produced a well-formed report.
+- Verdict: `approve`. Consistent with the trivial content of the staged change.
+
+### Bugs surfaced
+
+None. The pipeline composed cleanly from helpers.
+
+### Observations
+
+- `MREVIEW_WORK_DIR` must be exported before phases 4 and 5 can read it. The skill body in `SKILL.md` already calls this out; relying on it being set is correct.
+- The agent's filename matches the subagent_type suffix (`code-reviewer.md`); the synthesizer's basename parsing matches.
+
+### Cleanup
+
+The staged smoke marker was unstaged and reverted; `git diff --stat` confirms no residual changes to `SKILL.md`.
+
+## Run 2 — Same-session: broken-commit detection
+
+(populated by Task 14)
+
+## Run 3 — Fresh-subagent self-sufficiency
+
+(populated by Task 15)
+
+## Run 4 — mfix Phase 7.5 integration
+
+(populated by Task 16)
