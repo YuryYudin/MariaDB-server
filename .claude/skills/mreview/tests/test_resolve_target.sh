@@ -344,6 +344,72 @@ fi
 rm -rf "$WD" "$FX"
 pass
 
+case_start "I: mdev_lookup via fixture -> target.json type=github_pr, diff.patch non-empty"
+WD=$(mktemp -d)
+FX=$(mktemp -d)
+cat >"$FX/search.json" <<'JSON'
+[{"number":4869,"repository":{"nameWithOwner":"MariaDB/server"}}]
+JSON
+cat >"$FX/view.json" <<'JSON'
+{"number":4869,"title":"x","body":"","baseRefName":"main","headRefOid":"abc","author":{"login":"u"},"assignees":[],"reviewRequests":[],"reviews":[],"comments":[],"labels":[],"state":"OPEN","url":"https://github.com/MariaDB/server/pull/4869"}
+JSON
+printf '[]\n' >"$FX/comments.json"
+cat >"$FX/diff.patch" <<'PATCH'
+diff --git a/sql/foo.cc b/sql/foo.cc
+--- a/sql/foo.cc
++++ b/sql/foo.cc
+@@ -1 +1 @@
+-old
++new
+PATCH
+rc=0
+err=$(MREVIEW_WORK_DIR="$WD" MREVIEW_FAKE_GH=1 MREVIEW_FAKE_GH_DIR="$FX" \
+        bash "$SCRIPT" MDEV-23676 2>&1 >/dev/null) || rc=$?
+assert_status_zero "$rc"
+[ -s "$WD/target.json" ] || fail "target.json missing or empty"
+[ -s "$WD/diff.patch" ] || fail "diff.patch missing or empty"
+if jq -e . "$WD/target.json" >/dev/null 2>&1; then
+  t=$(jq -r .type "$WD/target.json")
+  assert_eq "$t" "github_pr"
+else
+  fail "target.json is not valid JSON"
+fi
+rm -rf "$WD" "$FX"
+pass
+
+case_start "J: auto in throwaway repo with one staged change -> type=staged, diff non-empty"
+TMP_REPO=$(mktemp -d)
+WD=$(mktemp -d)
+sub_status=0
+out_and_err=$(
+  cd "$TMP_REPO"
+  git init --quiet
+  git config user.email t@t
+  git config user.name t
+  echo init > a
+  git add a
+  git -c commit.gpgsign=false commit --quiet -m init
+  echo new > b
+  git add b
+  rc=0
+  err=$(MREVIEW_WORK_DIR="$WD" bash "$SCRIPT" 2>&1 >/dev/null) || rc=$?
+  printf 'rc=%s\n' "$rc"
+  printf 'err=%s\n' "$err"
+) || sub_status=$?
+[ "$sub_status" -eq 0 ] || fail "subshell exited non-zero: $sub_status"
+rc=$(printf '%s\n' "$out_and_err" | sed -n 's/^rc=//p')
+assert_eq "$rc" "0"
+[ -s "$WD/target.json" ] || fail "target.json missing or empty"
+[ -s "$WD/diff.patch" ] || fail "diff.patch missing or empty"
+if jq -e . "$WD/target.json" >/dev/null 2>&1; then
+  t=$(jq -r .type "$WD/target.json")
+  assert_eq "$t" "staged"
+else
+  fail "target.json is not valid JSON"
+fi
+rm -rf "$WD" "$TMP_REPO"
+pass
+
 # ----- summary -----
 echo "---"
 echo "$((total-fails))/$total passed"
