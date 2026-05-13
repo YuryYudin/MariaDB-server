@@ -11,7 +11,7 @@ SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
   `a` varchar(64) DEFAULT NULL
-) ENGINE=CONNECT DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci CONNECTION='Driver=SQLite3;Database=MTR_SUITE_DIR/std_data/test.sqlite3;NoWCHAR=yes' `TABLE_TYPE`='ODBC' `DATA_CHARSET`='utf8'
+) ENGINE=CONNECT DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci `TABLE_TYPE`='ODBC' `CONNECTION`='Driver=SQLite3;Database=MTR_SUITE_DIR/std_data/test.sqlite3;NoWCHAR=yes' `DATA_CHARSET`='utf8'
 SELECT * FROM t1;
 a
 test1
