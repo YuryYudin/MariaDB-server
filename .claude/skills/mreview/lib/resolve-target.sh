@@ -149,7 +149,97 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   exit 0
 fi
 
-# Non-dry-run path: filled in by Task 3 (materialize $WORK_DIR/target.json
-# and $WORK_DIR/diff.patch from the classified target).
-echo "resolve-target.sh: non-dry-run mode not yet implemented (Task 3)" >&2
-exit 1
+# ---------- non-dry-run path: materialize artifacts ----------
+
+if [[ -z "${MREVIEW_WORK_DIR:-}" ]]; then
+  echo "resolve-target.sh: MREVIEW_WORK_DIR is not set" >&2
+  exit 64
+fi
+WORK_DIR="$MREVIEW_WORK_DIR"
+mkdir -p "$WORK_DIR"
+
+# Parse KV_LINES into an associative array T.
+declare -A T=()
+while IFS= read -r line; do
+  [[ -z "$line" ]] && continue
+  key="${line%%=*}"
+  val="${line#*=}"
+  T["$key"]="$val"
+done <<<"$KV_LINES"
+
+TYPE="${T[type]:-}"
+
+# write_target_json: write $WORK_DIR/target.json from associative array T.
+write_target_json() {
+  local args=() k
+  for k in "${!T[@]}"; do
+    args+=(--arg "$k" "${T[$k]}")
+  done
+  jq -n "${args[@]}" '$ARGS.named' > "$WORK_DIR/target.json"
+}
+
+case "$TYPE" in
+  commit)
+    SHA="${T[sha]}"
+    write_target_json
+    git show --first-parent "$SHA" > "$WORK_DIR/diff.patch"
+    git show --first-parent --name-only --format= "$SHA" > "$WORK_DIR/touched-paths.txt"
+    ;;
+  range)
+    BASE="${T[base]}"
+    HEAD_REF="${T[head]}"
+    write_target_json
+    git diff "${BASE}..${HEAD_REF}" > "$WORK_DIR/diff.patch"
+    git diff --name-only "${BASE}..${HEAD_REF}" > "$WORK_DIR/touched-paths.txt"
+    ;;
+  staged)
+    write_target_json
+    git diff --cached > "$WORK_DIR/diff.patch"
+    git diff --cached --name-only > "$WORK_DIR/touched-paths.txt"
+    ;;
+  working)
+    write_target_json
+    git diff > "$WORK_DIR/diff.patch"
+    git diff --name-only > "$WORK_DIR/touched-paths.txt"
+    ;;
+  branch)
+    BRANCH="${T[branch]}"
+    # Compute merge-base: origin/main, then main, then <branch>^.
+    BASE=""
+    if BASE=$(git merge-base "$BRANCH" origin/main 2>/dev/null); then
+      :
+    elif BASE=$(git merge-base "$BRANCH" main 2>/dev/null); then
+      :
+    elif BASE=$(git rev-parse --verify --quiet "${BRANCH}^" 2>/dev/null); then
+      :
+    else
+      echo "resolve-target.sh: cannot determine merge-base for branch '$BRANCH'" >&2
+      exit 1
+    fi
+    T[base]="$BASE"
+    write_target_json
+    git diff "${BASE}..${BRANCH}" > "$WORK_DIR/diff.patch"
+    git diff --name-only "${BASE}..${BRANCH}" > "$WORK_DIR/touched-paths.txt"
+    ;;
+  github_pr|mdev_lookup|auto)
+    # Deferred: dispatch is handled by later tasks (4 and 5).
+    write_target_json
+    # Touch diff.patch / touched-paths.txt so callers can detect "not produced
+    # yet" via emptiness if they wish, but skip the empty-diff check below.
+    : > "$WORK_DIR/diff.patch"
+    : > "$WORK_DIR/touched-paths.txt"
+    exit 0
+    ;;
+  *)
+    echo "resolve-target.sh: unknown classified type '$TYPE'" >&2
+    exit 1
+    ;;
+esac
+
+# Empty-diff fast fail (only for the locally-resolvable types above).
+if [[ ! -s "$WORK_DIR/diff.patch" ]]; then
+  echo "diff is empty — nothing to review" >&2
+  exit 66
+fi
+
+exit 0

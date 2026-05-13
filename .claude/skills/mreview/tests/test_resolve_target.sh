@@ -184,6 +184,107 @@ assert_not_contains "$out" "repo=MariaDB/server.git"
 assert_contains "$out" "pr_number=4869"
 pass
 
+# ----- non-dry-run materialization tests (Task 3) -----
+
+# Each test gets a fresh MREVIEW_WORK_DIR for isolation.
+
+case_start "A: HEAD sha (no --dry-run) -> target.json + diff.patch + touched-paths.txt"
+WD=$(mktemp -d)
+HEAD_SHA=$(git rev-parse HEAD)
+rc=0
+err=$(MREVIEW_WORK_DIR="$WD" bash "$SCRIPT" "$HEAD_SHA" 2>&1 >/dev/null) || rc=$?
+assert_status_zero "$rc"
+[ -s "$WD/target.json" ] || fail "target.json missing or empty"
+[ -s "$WD/diff.patch" ] || fail "diff.patch missing or empty"
+[ -s "$WD/touched-paths.txt" ] || fail "touched-paths.txt missing or empty"
+# Validate JSON and .type
+if jq -e . "$WD/target.json" >/dev/null 2>&1; then
+  t=$(jq -r .type "$WD/target.json")
+  assert_eq "$t" "commit"
+else
+  fail "target.json is not valid JSON"
+fi
+rm -rf "$WD"
+pass
+
+case_start "B: HEAD~1..HEAD (no --dry-run) -> type=range, diff non-empty"
+WD=$(mktemp -d)
+rc=0
+err=$(MREVIEW_WORK_DIR="$WD" bash "$SCRIPT" "HEAD~1..HEAD" 2>&1 >/dev/null) || rc=$?
+assert_status_zero "$rc"
+[ -s "$WD/diff.patch" ] || fail "diff.patch missing or empty"
+if jq -e . "$WD/target.json" >/dev/null 2>&1; then
+  t=$(jq -r .type "$WD/target.json")
+  assert_eq "$t" "range"
+  b=$(jq -r .base "$WD/target.json")
+  h=$(jq -r .head "$WD/target.json")
+  assert_eq "$b" "HEAD~1"
+  assert_eq "$h" "HEAD"
+else
+  fail "target.json is not valid JSON"
+fi
+rm -rf "$WD"
+pass
+
+case_start "C: --staged with nothing staged -> exit 66, 'diff is empty'"
+WD=$(mktemp -d)
+# Ensure no staged changes. If there are any, stash them for the duration of
+# this test only.
+stash_pushed=0
+if ! git diff --cached --quiet; then
+  git stash push --keep-index --include-untracked --quiet -- 2>/dev/null || true
+  # Drop the staged-and-untracked stash and create a clean cached state.
+  git reset --quiet || true
+  stash_pushed=1
+fi
+rc=0
+err=$(MREVIEW_WORK_DIR="$WD" bash "$SCRIPT" --staged 2>&1 >/dev/null) || rc=$?
+assert_eq "$rc" "66"
+assert_contains "$err" "diff is empty"
+# target.json must still be written before the empty-diff check.
+[ -s "$WD/target.json" ] || fail "target.json should be written even on empty-diff exit"
+if [ "$stash_pushed" -eq 1 ]; then
+  git stash pop --quiet 2>/dev/null || true
+fi
+rm -rf "$WD"
+pass
+
+case_start "D: --working (tolerant) -> rc==0 with diff.patch OR rc==66 'diff is empty'"
+WD=$(mktemp -d)
+rc=0
+err=$(MREVIEW_WORK_DIR="$WD" bash "$SCRIPT" --working 2>&1 >/dev/null) || rc=$?
+if [ "$rc" -eq 0 ]; then
+  [ -e "$WD/diff.patch" ] || fail "rc=0 but diff.patch missing"
+elif [ "$rc" -eq 66 ]; then
+  assert_contains "$err" "diff is empty"
+else
+  fail "unexpected rc=$rc, stderr: $err"
+fi
+rm -rf "$WD"
+pass
+
+case_start "E: HEAD sha -> touched-paths.txt matches 'git show --name-only --format= HEAD'"
+WD=$(mktemp -d)
+HEAD_SHA=$(git rev-parse HEAD)
+MREVIEW_WORK_DIR="$WD" bash "$SCRIPT" "$HEAD_SHA" >/dev/null 2>&1
+# Reference list using the same --first-parent setting the script uses.
+expected=$(git show --first-parent --name-only --format= "$HEAD_SHA" | sed '/^$/d' | sort -u)
+actual=$(sed '/^$/d' "$WD/touched-paths.txt" | sort -u)
+assert_eq "$actual" "$expected"
+# At least one path
+nlines=$(printf '%s\n' "$actual" | sed '/^$/d' | wc -l)
+[ "$nlines" -ge 1 ] || fail "expected >=1 touched path, got $nlines"
+rm -rf "$WD"
+pass
+
+case_start "F: MREVIEW_WORK_DIR unset -> exit 64"
+rc=0
+# unset MREVIEW_WORK_DIR for this invocation only via 'env -u'.
+err=$(env -u MREVIEW_WORK_DIR bash "$SCRIPT" "$(git rev-parse HEAD)" 2>&1 >/dev/null) || rc=$?
+assert_eq "$rc" "64"
+assert_contains "$err" "MREVIEW_WORK_DIR"
+pass
+
 # ----- summary -----
 echo "---"
 echo "$((total-fails))/$total passed"
