@@ -245,7 +245,10 @@ case "$TYPE" in
     ;;
   mdev_lookup)
     LIB_DIR="$(cd "$(dirname "$0")" && pwd)"
-    read -r REPO PRNUM < <(bash "$LIB_DIR/mdev-to-pr.sh" "${T[mdev]}")
+    # Capture-then-parse so a non-zero exit from mdev-to-pr.sh (67=no match,
+    # 68=multiple matches) propagates rather than being masked by `read`.
+    MDEV_OUT=$(bash "$LIB_DIR/mdev-to-pr.sh" "${T[mdev]}")
+    read -r REPO PRNUM <<<"$MDEV_OUT"
     T[type]=github_pr
     T[repo]="$REPO"
     T[pr_number]="$PRNUM"
@@ -257,9 +260,10 @@ case "$TYPE" in
     # auto-detect resolves to one of: working, staged, working_and_staged,
     # range, last_commit. Then we materialize accordingly.
     LIB_DIR="$(cd "$(dirname "$0")" && pwd)"
+    AUTO_OUT=$(bash "$LIB_DIR/auto-detect.sh")
     while IFS='=' read -r ak av; do
       [ -n "$ak" ] && T["$ak"]="$av"
-    done < <(bash "$LIB_DIR/auto-detect.sh")
+    done <<<"$AUTO_OUT"
     write_target_json
     case "${T[type]}" in
       working)
