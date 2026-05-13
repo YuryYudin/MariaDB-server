@@ -137,6 +137,53 @@ assert_eq "$rc" "65"
 assert_contains "$out" "could not resolve"
 pass
 
+case_start "12: 'main..' -> type=range with base=main, head=HEAD"
+out=$(bash "$SCRIPT" --dry-run "main..")
+status=$?
+assert_status_zero "$status"
+assert_contains "$out" "type=range"
+assert_contains "$out" "base=main"
+assert_contains "$out" "head=HEAD"
+pass
+
+case_start "13: 'A...B' (3-dot) -> exit 65, 'could not resolve'"
+rc=0
+out=$(bash "$SCRIPT" --dry-run "A...B" 2>&1) || rc=$?
+assert_eq "$rc" "65"
+assert_contains "$out" "could not resolve"
+pass
+
+case_start "14: '..HEAD' (empty base) -> exit 65"
+rc=0
+out=$(bash "$SCRIPT" --dry-run "..HEAD" 2>&1) || rc=$?
+assert_eq "$rc" "65"
+assert_contains "$out" "could not resolve"
+pass
+
+case_start "15: '..' alone -> exit 65"
+rc=0
+out=$(bash "$SCRIPT" --dry-run ".." 2>&1) || rc=$?
+assert_eq "$rc" "65"
+assert_contains "$out" "could not resolve"
+pass
+
+case_start "16: pr_number=0 -> exit 65"
+rc=0
+out=$(bash "$SCRIPT" --dry-run 0 2>&1) || rc=$?
+assert_eq "$rc" "65"
+assert_contains "$out" "could not resolve"
+pass
+
+case_start "17: URL with .git suffix -> repo without .git"
+out=$(bash "$SCRIPT" --dry-run "https://github.com/MariaDB/server.git/pull/4869")
+status=$?
+assert_status_zero "$status"
+assert_contains "$out" "type=github_pr"
+assert_contains "$out" "repo=MariaDB/server"
+assert_not_contains "$out" "repo=MariaDB/server.git"
+assert_contains "$out" "pr_number=4869"
+pass
+
 # ----- summary -----
 echo "---"
 echo "$((total-fails))/$total passed"
