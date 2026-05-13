@@ -82,6 +82,42 @@ inline ahi_node **btr_sea::hash_chain::search(UnaryPred u) noexcept
   return prev;
 }
 
+#ifdef BTR_CUR_HASH_ADAPT
+void btr_ahi_inc_searches() noexcept
+{
+  if (THD *thd= current_thd)
+    if (trx_t *trx= thd_to_trx(thd))
+      if (ha_handler_stats *stats= trx->active_handler_stats)
+        stats->ahi_searches++;
+}
+
+void btr_ahi_inc_searches_btree() noexcept
+{
+  if (THD *thd= current_thd)
+    if (trx_t *trx= thd_to_trx(thd))
+      if (ha_handler_stats *stats= trx->active_handler_stats)
+        stats->ahi_searches_btree++;
+}
+
+void btr_ahi_inc_rows_added(ulonglong count) noexcept
+{
+  MONITOR_INC_VALUE(MONITOR_ADAPTIVE_HASH_ROW_ADDED, count);
+  if (THD *thd= current_thd)
+    if (trx_t *trx= thd_to_trx(thd))
+      if (ha_handler_stats *stats= trx->active_handler_stats)
+        stats->ahi_rows_added+= count;
+}
+
+void btr_ahi_inc_pages_added() noexcept
+{
+  MONITOR_INC(MONITOR_ADAPTIVE_HASH_PAGE_ADDED);
+  if (THD *thd= current_thd)
+    if (trx_t *trx= thd_to_trx(thd))
+      if (ha_handler_stats *stats= trx->active_handler_stats)
+        stats->ahi_pages_added++;
+}
+#endif /* BTR_CUR_HASH_ADAPT */
+
 inline void btr_sea::partition::init() noexcept
 {
   latch.SRW_LOCK_INIT(btr_search_latch_key);
@@ -625,7 +661,9 @@ static void btr_search_update_hash_ref(const btr_cur_t &cursor,
     }
 
     part.insert(fold, rec, block);
-    MONITOR_INC(MONITOR_ADAPTIVE_HASH_ROW_ADDED);
+#ifdef BTR_CUR_HASH_ADAPT
+    btr_ahi_inc_rows_added();
+#endif /* BTR_CUR_HASH_ADAPT */
   }
   else
   {
@@ -1676,7 +1714,9 @@ static void btr_search_build_page_hash_index(dict_index_t *index,
   part.latch.wr_rd_downgrade(SRW_LOCK_CALL);
 # endif
 
-  MONITOR_INC_VALUE(MONITOR_ADAPTIVE_HASH_ROW_ADDED, n_cached);
+#ifdef BTR_CUR_HASH_ADAPT
+  btr_ahi_inc_rows_added(n_cached);
+#endif /* BTR_CUR_HASH_ADAPT */
 
   for (size_t i= 0; i < n_cached; i++)
   {
@@ -1711,7 +1751,9 @@ static void btr_search_build_page_hash_index(dict_index_t *index,
     goto next_redundant;
   }
 
-  MONITOR_INC(MONITOR_ADAPTIVE_HASH_PAGE_ADDED);
+#ifdef BTR_CUR_HASH_ADAPT
+  btr_ahi_inc_pages_added();
+#endif /* BTR_CUR_HASH_ADAPT */
   assert_block_ahi_valid(block);
   part.latch.rd_unlock();
 }
@@ -1964,7 +2006,9 @@ void btr_search_update_hash_on_insert(btr_cur_t *cursor, bool reorg) noexcept
         goto unlock_exit;
       }
       part.insert(ins_fold, ins_rec, block);
-      MONITOR_INC(MONITOR_ADAPTIVE_HASH_ROW_ADDED);
+#ifdef BTR_CUR_HASH_ADAPT
+      btr_ahi_inc_rows_added();
+#endif /* BTR_CUR_HASH_ADAPT */
     }
   }
   else if (fold != ins_fold)
@@ -1979,7 +2023,9 @@ void btr_search_update_hash_on_insert(btr_cur_t *cursor, bool reorg) noexcept
     if (left_bytes_fields & buf_block_t::LEFT_SIDE)
       fold= ins_fold, rec= ins_rec;
     part.insert(fold, rec, block);
-    MONITOR_INC(MONITOR_ADAPTIVE_HASH_ROW_ADDED);
+#ifdef BTR_CUR_HASH_ADAPT
+    btr_ahi_inc_rows_added();
+#endif /* BTR_CUR_HASH_ADAPT */
   }
 
   if (next_is_supremum)
@@ -1994,7 +2040,9 @@ void btr_search_update_hash_on_insert(btr_cur_t *cursor, bool reorg) noexcept
           goto rollback;
       }
       part.insert(ins_fold, ins_rec, block);
-      MONITOR_INC(MONITOR_ADAPTIVE_HASH_ROW_ADDED);
+#ifdef BTR_CUR_HASH_ADAPT
+      btr_ahi_inc_rows_added();
+#endif /* BTR_CUR_HASH_ADAPT */
     }
   }
   else if (ins_fold != next_fold)
@@ -2009,7 +2057,9 @@ void btr_search_update_hash_on_insert(btr_cur_t *cursor, bool reorg) noexcept
     if (!(left_bytes_fields & ~buf_block_t::LEFT_SIDE))
       next_fold= ins_fold, next_rec= ins_rec;
     part.insert(next_fold, next_rec, block);
-    MONITOR_INC(MONITOR_ADAPTIVE_HASH_ROW_ADDED);
+#ifdef BTR_CUR_HASH_ADAPT
+    btr_ahi_inc_rows_added();
+#endif /* BTR_CUR_HASH_ADAPT */
   }
 
   ut_ad(!locked || index == block->index);

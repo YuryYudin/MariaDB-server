@@ -1146,11 +1146,15 @@ dberr_t btr_cur_t::search_leaf(const dtuple_t *tuple, page_cur_mode_t mode,
     ut_ad(up_match != uint16_t(~0U) || mode != PAGE_CUR_LE);
     ut_ad(low_match != uint16_t(~0U) || mode != PAGE_CUR_LE);
     ++btr_cur_n_sea;
+    btr_ahi_inc_searches();
 
     return DB_SUCCESS;
   }
   else
+  {
     ++btr_cur_n_non_sea;
+    btr_ahi_inc_searches_btree();
+  }
 # endif
 #endif
 

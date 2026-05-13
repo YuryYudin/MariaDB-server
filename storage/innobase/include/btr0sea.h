@@ -91,6 +91,21 @@ void btr_search_update_hash_on_insert(btr_cur_t *cursor, bool reorg) noexcept;
 @param cursor   cursor positioned on the to-be-deleted record */
 void btr_search_update_hash_on_delete(btr_cur_t *cursor) noexcept;
 
+#ifdef BTR_CUR_HASH_ADAPT
+/** Increment successful adaptive hash index lookups */
+void btr_ahi_inc_searches() noexcept;
+
+/** Increment adaptive hash index misses (B-tree fallback) */
+void btr_ahi_inc_searches_btree() noexcept;
+
+/** Increment rows added to adaptive hash index
+@param count  number of rows added (default 1) */
+void btr_ahi_inc_rows_added(ulonglong count= 1) noexcept;
+
+/** Increment pages added to adaptive hash index */
+void btr_ahi_inc_pages_added() noexcept;
+#endif /* BTR_CUR_HASH_ADAPT */
+
 /** Validates the search system.
 @param thd   connection, for checking if CHECK TABLE has been killed
 @return true if ok */

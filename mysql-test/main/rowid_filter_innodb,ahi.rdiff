@@ -9,21 +9,273 @@
  DROP DATABASE IF EXISTS dbt3_s001;
  CREATE DATABASE dbt3_s001;
  use dbt3_s001;
-@@ -2059,7 +2059,7 @@
+@@ -159,7 +159,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 8.492922783,
+           "r_total_filtered": 9.742120344,
+           "index_condition": "lineitem.l_quantity > 47",
+@@ -277,7 +278,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 8.492922783,
+           "r_total_filtered": 9.742120344,
+           "index_condition": "lineitem.l_quantity > 47",
+@@ -426,7 +428,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 100,
+           "r_total_filtered": 100,
+           "attached_condition": "lineitem.l_shipDATE between '1997-01-01' and '1997-01-31'",
+@@ -451,7 +454,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 4.733333111,
+           "r_total_filtered": 11.2244898,
+           "attached_condition": "orders.o_totalprice between 200000 and 230000",
+@@ -576,7 +580,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 100,
+           "r_total_filtered": 100,
+           "attached_condition": "lineitem.l_shipDATE between '1997-01-01' and '1997-01-31'",
+@@ -601,7 +606,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 4.733333111,
+           "r_total_filtered": 11.2244898,
+           "attached_condition": "orders.o_totalprice between 200000 and 230000",
+@@ -754,7 +760,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 8.492922783,
+           "r_total_filtered": 9.742120344,
+           "index_condition": "lineitem.l_quantity > 47",
+@@ -779,7 +786,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 9.600000381,
+           "r_total_filtered": 26.47058824,
+           "attached_condition": "orders.o_totalprice between 180000 and 230000",
+@@ -903,7 +911,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 100,
+           "r_total_filtered": 100,
+           "attached_condition": "orders.o_totalprice between 180000 and 230000",
+@@ -933,7 +942,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 0.493593663,
+           "r_total_filtered": 0.943396226,
+           "attached_condition": "lineitem.l_shipDATE between '1997-01-01' and '1997-06-30' and lineitem.l_quantity > 47",
+@@ -1060,7 +1070,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 100,
+           "r_total_filtered": 100,
+           "attached_condition": "orders.o_totalprice between 200000 and 230000",
+@@ -1089,7 +1100,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 8.492922783,
+           "r_total_filtered": 7.773109244,
+           "attached_condition": "lineitem.l_shipDATE between '1997-01-01' and '1997-06-30'",
+@@ -1235,7 +1247,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 100,
+           "r_total_filtered": 100,
+           "attached_condition": "orders.o_totalprice between 200000 and 230000",
+@@ -1264,7 +1277,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 8.492922783,
+           "r_total_filtered": 7.773109244,
+           "attached_condition": "lineitem.l_shipDATE between '1997-01-01' and '1997-06-30'",
+@@ -1433,7 +1447,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 0.566194832,
+           "r_total_filtered": 38.88888889,
+           "index_condition": "lineitem.l_receiptDATE between '1996-10-05' and '1996-10-10'",
+@@ -1458,7 +1473,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 5.666666508,
+           "r_total_filtered": 14.28571429,
+           "attached_condition": "orders.o_totalprice between 200000 and 250000",
+@@ -1586,7 +1602,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 0.566194832,
+           "r_total_filtered": 38.88888889,
+           "index_condition": "lineitem.l_receiptDATE between '1996-10-05' and '1996-10-10'",
+@@ -1611,7 +1628,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 5.666666508,
+           "r_total_filtered": 14.28571429,
+           "attached_condition": "orders.o_totalprice between 200000 and 250000",
+@@ -1739,7 +1757,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 3.333333254,
+           "r_total_filtered": 2.43902439,
+           "index_condition": "orders.o_totaldiscount between 18000 and 20000",
+@@ -1769,7 +1788,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 3.047460556,
+           "r_total_filtered": 66.66666667,
+           "attached_condition": "lineitem.l_shipDATE between '1996-10-01' and '1996-12-01'",
+@@ -1893,7 +1913,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 3.333333254,
+           "r_total_filtered": 2.43902439,
+           "index_condition": "orders.o_totaldiscount between 18000 and 20000",
+@@ -1923,7 +1944,8 @@
+           "cost": "REPLACED",
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+-          "r_engine_stats": REPLACED,
++          "r_engine_stats": REPLACED
++          },
+           "filtered": 3.047460556,
+           "r_total_filtered": 66.66666667,
+           "attached_condition": "lineitem.l_shipDATE between '1996-10-01' and '1996-12-01'",
+@@ -2061,7 +2083,11 @@
            "r_table_time_ms": "REPLACED",
            "r_other_time_ms": "REPLACED",
            "r_engine_stats": {
 -            "pages_accessed": 90
-+            "pages_accessed": 51
++            "pages_accessed": 51,
++            "r_ahi_stats": {
++              "ahi_searches": 39,
++              "ahi_searches_btree": 3
++            }
            },
            "filtered": "REPLACED",
            "r_total_filtered": 2.43902439,
-@@ -2227,7 +2227,7 @@
+@@ -2093,7 +2119,10 @@
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+           "r_engine_stats": {
+-            "pages_accessed": 4
++            "pages_accessed": 4,
++            "r_ahi_stats": {
++              "ahi_searches_btree": 1
++            }
+           },
+           "filtered": "REPLACED",
+           "r_total_filtered": 66.66666667,
+@@ -2229,7 +2258,11 @@
            "r_table_time_ms": "REPLACED",
            "r_other_time_ms": "REPLACED",
            "r_engine_stats": {
 -            "pages_accessed": 90
-+            "pages_accessed": 49
++            "pages_accessed": 49,
++            "r_ahi_stats": {
++              "ahi_searches": 41,
++              "ahi_searches_btree": 1
++            }
            },
            "filtered": "REPLACED",
            "r_total_filtered": 2.43902439,
+@@ -2261,7 +2294,10 @@
+           "r_table_time_ms": "REPLACED",
+           "r_other_time_ms": "REPLACED",
+           "r_engine_stats": {
+-            "pages_accessed": 4
++            "pages_accessed": 4,
++            "r_ahi_stats": {
++              "ahi_searches_btree": 1
++            }
+           },
+           "filtered": "REPLACED",
+           "r_total_filtered": 66.66666667,
