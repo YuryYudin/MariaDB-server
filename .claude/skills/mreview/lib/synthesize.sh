@@ -57,6 +57,10 @@ parse_findings() {
       local sev="${BASH_REMATCH[1]}"
       local loc="${BASH_REMATCH[2]}"
       local body="${BASH_REMATCH[3]}"
+      # Sanitize TAB/CR in body so it can't corrupt the TSV format
+      # (awk -F'\t' downstream would otherwise misparse fields).
+      body="${body//$'\t'/ }"
+      body="${body//$'\r'/}"
       printf '%s\t%s\t%s\t%s\n' "$sev" "$loc" "$body" "$agent" \
         >> "$FINDINGS_TSV"
     fi
@@ -106,10 +110,17 @@ dedupe_and_render() {
     $1 == sev {
       key = $2
       if (key in seen) {
-        if (also[key] == "") {
-          also[key] = $4
-        } else {
-          also[key] = also[key] ", " $4
+        split(seen[key], f, "\t")
+        # Only record a different agent as "also flagged by".
+        # Skip same-agent dups (would produce "also flagged by <self>")
+        # and skip repeat appearances of the same other-agent.
+        if ($4 != f[4] && !((key SUBSEP $4) in also_seen)) {
+          also_seen[key,$4] = 1
+          if (also[key] == "") {
+            also[key] = $4
+          } else {
+            also[key] = also[key] ", " $4
+          }
         }
       } else {
         order[++n] = key
