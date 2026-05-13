@@ -260,4 +260,21 @@ SET @x = CONCAT(REPEAT('<element_with_long_name>', 30), 'leaf',
 REPEAT('</element_with_long_name>', 30));
 INSERT INTO t1 VALUES(@x);
 DROP TABLE t1;
+#
+# MDEV-39589 Wrong results with xmltype as a virtual column.
+#
+CREATE TABLE t1(a VARCHAR(50), b XMLTYPE AS (a) VIRTUAL);
+INSERT INTO t1(a) VALUES('<yyyyyyyyy>xxxxxxxxxxxxxxxxxxx</yyyyyyyyy>');
+INSERT INTO t1(a) VALUES('a');
+INSERT INTO t1(a) VALUES('b');
+INSERT INTO t1(a) VALUES('<dddddddddd>tttttttttttttttttttttt</dddddddddd>');
+INSERT INTO t1(a) VALUES('e');
+SELECT * FROM t1;
+a	b
+<yyyyyyyyy>xxxxxxxxxxxxxxxxxxx</yyyyyyyyy>	<yyyyyyyyy>xxxxxxxxxxxxxxxxxxx</yyyyyyyyy>
+a	a
+b	b
+<dddddddddd>tttttttttttttttttttttt</dddddddddd>	<dddddddddd>tttttttttttttttttttttt</dddddddddd>
+e	e
+DROP TABLE t1;
 # End of 12.3 tests
