@@ -237,9 +237,15 @@ case "$TYPE" in
     mv "$DIFF_TMP" "$WORK_DIR/diff.patch"
     mv "$PATHS_TMP" "$WORK_DIR/touched-paths.txt"
     ;;
-  github_pr|mdev_lookup|auto)
-    # Deferred: dispatch is handled by later tasks (4 and 5).
-    # Task 4/5 will write diff.patch and touched-paths.txt for these types.
+  github_pr)
+    write_target_json
+    LIB_DIR="$(cd "$(dirname "$0")" && pwd)"
+    bash "$LIB_DIR/fetch-pr.sh" "${T[repo]}" "${T[pr_number]}"
+    exit 0
+    ;;
+  mdev_lookup|auto)
+    # Deferred: dispatch is handled by Task 5.
+    # Task 5 will write diff.patch and touched-paths.txt for these types.
     write_target_json
     exit 0
     ;;

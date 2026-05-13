@@ -313,6 +313,37 @@ assert_eq "$rc" "66"
 rm -rf "$WD" "$TMP_REPO"
 pass
 
+case_start "H: github_pr via fixture -> target.json, diff.patch, touched-paths.txt all populated"
+WD=$(mktemp -d)
+FX=$(mktemp -d)
+cat >"$FX/view.json" <<'JSON'
+{"number":4869,"title":"x","body":"","baseRefName":"main","headRefOid":"abc","author":{"login":"u"},"assignees":[],"reviewRequests":[],"reviews":[],"comments":[],"labels":[],"state":"OPEN","url":"https://github.com/MariaDB/server/pull/4869"}
+JSON
+printf '[]\n' >"$FX/comments.json"
+cat >"$FX/diff.patch" <<'PATCH'
+diff --git a/sql/foo.cc b/sql/foo.cc
+--- a/sql/foo.cc
++++ b/sql/foo.cc
+@@ -1 +1 @@
+-old
++new
+PATCH
+rc=0
+err=$(MREVIEW_WORK_DIR="$WD" MREVIEW_FAKE_GH=1 MREVIEW_FAKE_GH_DIR="$FX" \
+        bash "$SCRIPT" 4869 2>&1 >/dev/null) || rc=$?
+assert_status_zero "$rc"
+[ -s "$WD/target.json" ] || fail "target.json missing or empty"
+[ -s "$WD/diff.patch" ] || fail "diff.patch missing or empty"
+[ -s "$WD/touched-paths.txt" ] || fail "touched-paths.txt missing or empty"
+if jq -e . "$WD/target.json" >/dev/null 2>&1; then
+  t=$(jq -r .type "$WD/target.json")
+  assert_eq "$t" "github_pr"
+else
+  fail "target.json is not valid JSON"
+fi
+rm -rf "$WD" "$FX"
+pass
+
 # ----- summary -----
 echo "---"
 echo "$((total-fails))/$total passed"
