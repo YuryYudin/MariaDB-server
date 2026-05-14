@@ -256,7 +256,7 @@ Cite-and-link list. Most of these are restatements of single bullets from the `.
 - [`sql/CLAUDE.md`](../CLAUDE.md) — the file-cluster map; this doc lives downstream of §"Stored programs".
 - [`sql/docs/parser.md`](parser.md) — how the stored-program second parser pass works (the `LEX::sphead` invariant, statement-by-statement parsing into `sp_instr_*`).
 - [`sql/docs/item-system.md`](item-system.md) — `Item_splocal`, `Item_sp_variable`, `Item_trigger_field`, how SP-local references plug into expression evaluation.
-- [`.claude/reference/error-handling.md`](../../.claude/reference/error-handling.md) — `Sql_condition`, `Diagnostics_area`, SQLSTATE classification; the same machinery that SP handlers ride on. *(Forward reference — may not exist yet at write time; Phase 5.)*
+- [`.claude/reference/error-handling.md`](../../.claude/reference/error-handling.md) — `Sql_condition`, `Diagnostics_area`, SQLSTATE classification; the same machinery that SP handlers ride on.
 - [`.claude/playbooks/add-mtr-test.md`](../../.claude/playbooks/add-mtr-test.md) — recording results, prepared-statement / stored-procedure variant skeletons (the SP variant is mandatory for any new SQL feature).
 - [`.claude/review/testing.md`](../../.claude/review/testing.md) — "Cover every documented branch": SP/PS variant coverage is not optional.
 

@@ -102,9 +102,9 @@ Alphabetical within each section. Sections ordered roughly by "what an agent loo
 - [`sql/CLAUDE.md`](../../sql/CLAUDE.md) — server-core map, THD lifecycle, MEM_ROOT, items.
 - [`storage/innobase/CLAUDE.md`](../../storage/innobase/CLAUDE.md) — InnoDB latches, `mtr_t`, `dberr_t`, page format.
 - [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) — `mtr` driver, directive cheat-sheet, DEBUG_SYNC, recording results.
-- Forward references (not yet written):
-  - [`branches-and-forward-merges.md`](branches-and-forward-merges.md) (Phase 2) — branch policy with concrete numbers and the forward-merge mechanics.
-  - `.claude/reference/memory-management.md`, `error-handling.md`, `threading-and-locks.md`, `debug-tooling.md` (Phase 5).
+- [`branches-and-forward-merges.md`](branches-and-forward-merges.md) — branch policy with concrete numbers and the forward-merge mechanics.
+- [`keyword-index.md`](keyword-index.md) — reverse index from concept to where it's discussed.
+- [`memory-management.md`](memory-management.md), [`error-handling.md`](error-handling.md), [`threading-and-locks.md`](threading-and-locks.md), [`debug-tooling.md`](debug-tooling.md) — cross-cutting reference docs.
 
 ---
 

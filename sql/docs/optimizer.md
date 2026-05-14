@@ -284,8 +284,8 @@ The recurring failure modes when changing optimizer code. Cite real PRs / MDEVs.
 - [`.claude/review/testing.md`](../../.claude/review/testing.md) — PS/SP variant requirement; `--big-test` join-search coverage.
 - Related references:
   - [`sql/docs/replication.md`](replication.md) — binlog row-image format and how it interacts with optimized DML.
-- Forward references (not yet written):
-  - `.claude/reference/debug-tooling.md` (Phase 5) — `--debug=d,info` / optimizer trace / DBUG keywords for tracing optimizer decisions.
+- Related references:
+  - [`.claude/reference/debug-tooling.md`](../../.claude/reference/debug-tooling.md) — `--debug=d,info` / optimizer trace / DBUG keywords for tracing optimizer decisions.
 
 ---
 

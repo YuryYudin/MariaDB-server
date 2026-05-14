@@ -319,9 +319,9 @@ The MDEV-39179 bug family is a NULL-handling family disguised as a `Field`-point
 - Related references:
   - [`sql/docs/optimizer.md`](optimizer.md) — `JOIN::optimize`'s use of `Item::transform`, where each rewrite phase lives, materialization strategy.
   - [`sql/docs/parser.md`](parser.md) — where Items are *constructed* in `sql_yacc.yy` and via the `item_create.cc` factory.
-- Forward references (not yet written):
-  - `sql/docs/charset-and-collation.md` (Phase 5) — `CHARSET_INFO`, the `String` class, collation derivation in depth.
-  - `.claude/reference/memory-management.md` (Phase 5) — MEM_ROOT arenas, `alloc_root`, the stmt-arena lifetime in detail.
+- Related references:
+  - [`sql/docs/charset-and-collation.md`](charset-and-collation.md) — `CHARSET_INFO`, the `String` class, collation derivation in depth.
+  - [`.claude/reference/memory-management.md`](../../.claude/reference/memory-management.md) — MEM_ROOT arenas, `alloc_root`, the stmt-arena lifetime in detail.
 
 ---
 
@@ -351,7 +351,7 @@ The MDEV-39179 bug family is a NULL-handling family disguised as a `Field`-point
   - "How to add a new SQL function" — that's [`add-sql-function.md`](../../.claude/playbooks/add-sql-function.md).
   - Optimizer-phase ordering (where `transform` is called *from*) — covered in [`sql/docs/optimizer.md`](optimizer.md).
   - Parser construction of items (where `new (thd->mem_root) Item_func_*` happens) — covered in [`sql/docs/parser.md`](parser.md).
-  - `String`/`CHARSET_INFO`/`my_charset_*` deep dive — Phase 5 `sql/docs/charset-and-collation.md`.
+  - `String`/`CHARSET_INFO`/`my_charset_*` deep dive — covered in [`sql/docs/charset-and-collation.md`](charset-and-collation.md).
 - **Refresh procedure:**
   - When a new `Item_*` family lands (new `sql/item_*.h`, new `Item_cache_*`, new `Type_handler_*`), update the §2 grep recipes and the §6 sub-section if the new family is "indirect".
   - When a review-rulebook section moves or a new MDEV pitfall lands touching Items, update the §9/§10 citations.

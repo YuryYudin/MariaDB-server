@@ -265,7 +265,7 @@ When the grammar sees `CREATE PROCEDURE` / `CREATE FUNCTION` / `CREATE TRIGGER` 
 
 The same parser state is **re-entered** for each statement inside the routine — `sp_head` accumulates instructions across many `MYSQLparse()` calls if the routine spans multiple statements (though for `CREATE`, it's all one `MYSQLparse()` invocation).
 
-Runtime execution uses `sp_rcontext` (the **run**-time stack of variable values, cursor instances, and handlers). Forward reference: `sql/docs/stored-programs.md` (Phase 5) for the full compile-vs-execute model.
+Runtime execution uses `sp_rcontext` (the **run**-time stack of variable values, cursor instances, and handlers). See [`sql/docs/stored-programs.md`](stored-programs.md) for the full compile-vs-execute model.
 
 ## 10. Pitfalls and review patterns
 
@@ -290,8 +290,8 @@ Patterns reviewers consistently flag:
 - Related references:
   - [`sql/docs/item-system.md`](item-system.md) — what a parsed `Item *` becomes.
   - [`sql/docs/optimizer.md`](optimizer.md) — how the optimizer-hint AST is applied.
-- Forward references:
-  - `sql/docs/stored-programs.md` (Phase 5) — `sp_head` / `sp_pcontext` / `sp_rcontext` in detail.
+- Related references:
+  - [`sql/docs/stored-programs.md`](stored-programs.md) — `sp_head` / `sp_pcontext` / `sp_rcontext` in detail.
 
 ## How this doc was built
 
@@ -312,7 +312,7 @@ Patterns reviewers consistently flag:
   - Full grammar excerpts — the file is 21 k lines; this doc points at sections, it does not paraphrase them.
   - The full token type-tag list (`<lex_str>`, `<ident_sys>`, `<spblock>`, `<kwd>`, `<tril>`, …) — covered by `grep -n '^%type' sql/sql_yacc.yy`.
   - Bison-specific debugging (`yacc -v`, `bison.output` reading) — generic bison knowledge.
-  - Charset/collation handling inside identifiers — covered in `sql/docs/charset-and-collation.md` (Phase 5).
+  - Charset/collation handling inside identifiers — covered in [`sql/docs/charset-and-collation.md`](charset-and-collation.md).
   - The `digest` / `Performance Schema` interaction (token digest, statement digest hash) — performance-schema concern, not a parser concern.
 - **Refresh procedure:**
   - Re-run `wc -l sql/sql_yacc.yy sql/lex.h` and bump references if structure has shifted.

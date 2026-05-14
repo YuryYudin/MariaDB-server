@@ -312,9 +312,9 @@ Galera development happens externally in `codership/` repos — cross-repo coord
 - [`.claude/review/api-and-architecture.md`](../../.claude/review/api-and-architecture.md) §"Replication / binlog wire format", §"Codership / Galera", §"Submodules".
 - [`sql/docs/item-system.md`](item-system.md) — for `IS_UNSAFE` marking of new `Item` subclasses.
 - [`Docs/replication/binlog.md`](../../Docs/replication/binlog.md) — the new binlog-in-engine on-disk format spec.
-- Forward refs:
-  - [`sql/docs/optimizer.md`](optimizer.md) (Phase 4) — for the RBR row-event emission path during executor stage.
-  - `.claude/reference/debug-tooling.md` (Phase 5) — for slave-side debug recipes, `DEBUG_SYNC` patterns common to `rpl_*` tests.
+- Related references:
+  - [`sql/docs/optimizer.md`](optimizer.md) — for the RBR row-event emission path during executor stage.
+  - [`.claude/reference/debug-tooling.md`](../../.claude/reference/debug-tooling.md) — for slave-side debug recipes, `DEBUG_SYNC` patterns common to `rpl_*` tests.
 
 ---
 
