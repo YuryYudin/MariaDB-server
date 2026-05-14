@@ -316,9 +316,10 @@ The MDEV-39179 bug family is a NULL-handling family disguised as a `Field`-point
 - [`.claude/review/correctness-and-security.md`](../../.claude/review/correctness-and-security.md) — §"NULL handling", §"Charset / collation", §"Lifetime / ownership".
 - [`.claude/review/api-and-architecture.md`](../../.claude/review/api-and-architecture.md) — §"Where features live", §"API design discipline".
 - [`.claude/review/coding-style.md`](../../.claude/review/coding-style.md) — assignment-in-condition idiom, pointer-asterisk placement, naming.
+- Related references:
+  - [`sql/docs/optimizer.md`](optimizer.md) — `JOIN::optimize`'s use of `Item::transform`, where each rewrite phase lives, materialization strategy.
+  - [`sql/docs/parser.md`](parser.md) — where Items are *constructed* in `sql_yacc.yy` and via the `item_create.cc` factory.
 - Forward references (not yet written):
-  - `sql/docs/optimizer.md` (Phase 4) — `JOIN::optimize`'s use of `Item::transform`, where each rewrite phase lives, materialization strategy.
-  - `sql/docs/parser.md` (Phase 4) — where Items are *constructed* in `sql_yacc.yy` and via the `item_create.cc` factory.
   - `sql/docs/charset-and-collation.md` (Phase 5) — `CHARSET_INFO`, the `String` class, collation derivation in depth.
   - `.claude/reference/memory-management.md` (Phase 5) — MEM_ROOT arenas, `alloc_root`, the stmt-arena lifetime in detail.
 
@@ -348,8 +349,8 @@ The MDEV-39179 bug family is a NULL-handling family disguised as a `Field`-point
   - Line numbers as primary references — they drift. Cited file-and-feature (with grep recipe) instead.
   - File-by-file paraphrase of every `Item_func_*` subclass — that's [`sql/CLAUDE.md`](../CLAUDE.md)'s cluster table.
   - "How to add a new SQL function" — that's [`add-sql-function.md`](../../.claude/playbooks/add-sql-function.md).
-  - Optimizer-phase ordering (where `transform` is called *from*) — Phase 4 `sql/docs/optimizer.md`.
-  - Parser construction of items (where `new (thd->mem_root) Item_func_*` happens) — Phase 4 `sql/docs/parser.md`.
+  - Optimizer-phase ordering (where `transform` is called *from*) — covered in [`sql/docs/optimizer.md`](optimizer.md).
+  - Parser construction of items (where `new (thd->mem_root) Item_func_*` happens) — covered in [`sql/docs/parser.md`](parser.md).
   - `String`/`CHARSET_INFO`/`my_charset_*` deep dive — Phase 5 `sql/docs/charset-and-collation.md`.
 - **Refresh procedure:**
   - When a new `Item_*` family lands (new `sql/item_*.h`, new `Item_cache_*`, new `Type_handler_*`), update the §2 grep recipes and the §6 sub-section if the new family is "indirect".

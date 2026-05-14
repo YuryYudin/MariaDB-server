@@ -200,7 +200,7 @@ The single most error-prone area of `sql/`. A prepared statement (`PREPARE … F
 - **Cover prepared and procedural execution in tests.** Reviewers flag any new SQL feature whose MTR test doesn't include `prepare … execute …` and stored-procedure variations — see [`.claude/review/testing.md`](../.claude/review/testing.md).
 - **`get_copy()` and `func_name()` are easy to forget** when subclassing `Item_func`. `get_copy()` lets the optimizer clone your item during transformation (without it, a transformed copy will alias the original's children and you'll get crashes on re-execution). `func_name()` is used for `EXPLAIN`, error messages, and `JSON_OBJECTAGG`-style introspection — missing it shows up as an empty function name in user output. Copy both from a sibling subclass.
 
-Deep dive — covered in `sql/docs/item-system.md` (Phase 4).
+Deep dive — covered in [`sql/docs/item-system.md`](docs/item-system.md).
 
 ---
 
@@ -275,10 +275,10 @@ Forbidden in server code: `printf`, `fprintf(stderr, …)`, `puts`, `ib::logger`
 | Add a SQL function (e.g. `BAR(x)`) | [`item.h`](item.h), [`item_create.cc`](item_create.cc), an existing `item_*func.cc` for shape | [`sql_yacc.yy`](sql_yacc.yy) only if a new keyword | `.claude/playbooks/add-sql-function.md` (Phase 3) |
 | Add a system variable | [`sys_vars.cc`](sys_vars.cc) — find a similar variable and copy its shape | The using `.cc` file; a sysvar test under `mysql-test/suite/sys_vars/` | `.claude/playbooks/add-system-variable.md` (Phase 3) |
 | Add a new error message | [`share/errmsg-utf8.txt`](share/errmsg-utf8.txt) — new code at the *end* | The `my_error()` / `push_warning_printf()` call site, and the `.result` diff | `.claude/playbooks/add-error-message.md` (Phase 3) |
-| Fix an optimizer bug | [`sql_select.cc`](sql_select.cc) `JOIN::optimize`, `JOIN::exec` | The relevant `opt_*.cc` | `sql/docs/optimizer.md` (Phase 4) |
-| Item / expression bug | [`item.cc`](item.cc) `Item::fix_fields`, the specific `item_*.cc` | `Item::cleanup` / `Item::transform` | `sql/docs/item-system.md` (Phase 4) |
-| Replication change | `rpl_*.{cc,h}` and `log_event*.cc` | [`log.cc`](log.cc) commit path; binlog event format | `sql/docs/replication.md` (Phase 4) |
-| Parser change | [`sql_yacc.yy`](sql_yacc.yy) (covers MariaDB *and* Oracle modes via `%ifdef`) | [`lex.h`](lex.h); regenerate via the build (`gen_lex_hash.cc` / `gen_lex_token.cc` build-time only) | `sql/docs/parser.md` (Phase 4) |
+| Fix an optimizer bug | [`sql_select.cc`](sql_select.cc) `JOIN::optimize`, `JOIN::exec` | The relevant `opt_*.cc` | [`sql/docs/optimizer.md`](docs/optimizer.md) |
+| Item / expression bug | [`item.cc`](item.cc) `Item::fix_fields`, the specific `item_*.cc` | `Item::cleanup` / `Item::transform` | [`sql/docs/item-system.md`](docs/item-system.md) |
+| Replication change | `rpl_*.{cc,h}` and `log_event*.cc` | [`log.cc`](log.cc) commit path; binlog event format | [`sql/docs/replication.md`](docs/replication.md) |
+| Parser change | [`sql_yacc.yy`](sql_yacc.yy) (covers MariaDB *and* Oracle modes via `%ifdef`) | [`lex.h`](lex.h); regenerate via the build (`gen_lex_hash.cc` / `gen_lex_token.cc` build-time only) | [`sql/docs/parser.md`](docs/parser.md) |
 | Stored-program change | [`sp_head.cc`](sp_head.cc), [`sp_instr.cc`](sp_instr.cc), [`sp_pcontext.cc`](sp_pcontext.cc) | `sp_rcontext.cc` for runtime | `sql/docs/stored-programs.md` (Phase 5) |
 | Charset / collation issue | [`sql_string.cc`](sql_string.cc), `lex_charset.cc`, [`item_strfunc.cc`](item_strfunc.cc) | `m_ctype.h` API | `sql/docs/charset-and-collation.md` (Phase 5) |
 | ACL change | [`sql_acl.cc`](sql_acl.cc), [`grant.cc`](grant.cc) | `sql_priv.h` privilege bits | `sql/docs/acl-and-privileges.md` (Phase 5) |
@@ -333,7 +333,7 @@ Most of these are restatements of single bullets from the `.claude/review/` rule
   - `.claude/reference/glossary.md` (Phase 2)
   - `.claude/reference/branches-and-forward-merges.md` (Phase 2)
   - `.claude/playbooks/add-sql-function.md`, `add-system-variable.md`, `add-error-message.md`, `add-mtr-test.md`, `forward-merge.md` (Phase 3)
-  - `sql/docs/item-system.md`, `optimizer.md`, `replication.md`, `parser.md` (Phase 4)
+  - [`sql/docs/item-system.md`](docs/item-system.md), [`optimizer.md`](docs/optimizer.md), [`replication.md`](docs/replication.md), [`parser.md`](docs/parser.md)
   - `sql/docs/stored-programs.md`, `acl-and-privileges.md`, `charset-and-collation.md` (Phase 5)
   - `.claude/reference/memory-management.md`, `error-handling.md`, `threading-and-locks.md`, `debug-tooling.md` (Phase 5)
 

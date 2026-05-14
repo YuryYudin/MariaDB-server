@@ -257,7 +257,7 @@ The hint parser is a recursive-descent parser over a small `Extended_string_toke
 4. Add an `Opt_hints_*` AST node if the hint carries data the optimizer needs to find by name.
 5. Apply the hint in `JOIN::optimize` (or wherever it acts).
 
-Out of scope for this reference — cross-link to the optimizer doc, forthcoming `sql/docs/optimizer.md` (Phase 4).
+Out of scope for this reference — see [`sql/docs/optimizer.md`](optimizer.md) §"Hints".
 
 ## 9. Stored-program parsing
 
@@ -287,9 +287,10 @@ Patterns reviewers consistently flag:
 - [`sql/CLAUDE.md`](../CLAUDE.md) §"Parser & lexer" — the parent map.
 - [`.claude/playbooks/add-sql-function.md`](../../.claude/playbooks/add-sql-function.md) — when a parser change is and isn't required (in most cases, it isn't).
 - [`.claude/review/coding-style.md`](../../.claude/review/coding-style.md), [`.claude/review/api-and-architecture.md`](../../.claude/review/api-and-architecture.md) — style and architecture rules.
+- Related references:
+  - [`sql/docs/item-system.md`](item-system.md) — what a parsed `Item *` becomes.
+  - [`sql/docs/optimizer.md`](optimizer.md) — how the optimizer-hint AST is applied.
 - Forward references:
-  - `sql/docs/item-system.md` (Phase 4) — what a parsed `Item *` becomes.
-  - `sql/docs/optimizer.md` (Phase 4) — how the optimizer-hint AST is applied.
   - `sql/docs/stored-programs.md` (Phase 5) — `sp_head` / `sp_pcontext` / `sp_rcontext` in detail.
 
 ## How this doc was built
