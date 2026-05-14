@@ -919,6 +919,73 @@ drop table t1;
 # End of 10.4 tests
 #
 #
+# MDEV-23676 Assertion in my_time_packed_to_binary on MIN/MAX of GREATEST() with mixed-type args
+#
+# The crash reproducer from the JIRA: GREATEST of mixed-type args
+# produces a packed TIME with finer microsecond precision than the
+# arg's declared time_precision().
+CREATE TABLE t1 (a TIME(3), b DATETIME(3) NOT NULL);
+INSERT INTO t1 VALUES (NULL,'0000-00-00 00:00:00.000'),
+(NULL,'0000-00-00 00:00:00.000');
+SELECT MIN(GREATEST(5237686366631886848, 'v', NULL, a, NULL)) FROM t1 GROUP BY b;
+MIN(GREATEST(5237686366631886848, 'v', NULL, a, NULL))
+NULL
+Warnings:
+Warning	1292	Incorrect time value: '5237686366631886848'
+Warning	1292	Incorrect time value: '5237686366631886848'
+DROP TABLE t1;
+# MDEV-23525 sanity: MIN/MAX of TIME with GROUP BY compares numerically,
+# not string-wise.  Confirms this fix doesn't regress the prior fix.
+CREATE TABLE t1 (id INT, t TIME) ENGINE=HEAP;
+INSERT INTO t1 VALUES (1,'10:20:30'),(1,'100:20:30'),(1,'5:00:00');
+SELECT id, MIN(t), MAX(t) FROM t1 GROUP BY id;
+id	MIN(t)	MAX(t)
+1	05:00:00	100:20:30
+DROP TABLE t1;
+# Negative-TIME truncation: declared precision (3) is lower than the
+# finer-precision literal we GREATEST it against, so trunc(3) actually
+# runs on negative values.  Without correct sign-handling in
+# my_time_trunc(), the result would shift by one second.
+CREATE TABLE t1 (id INT, t TIME(3)) ENGINE=HEAP;
+INSERT INTO t1 VALUES (1, '-00:30:00.500'),(1, '-00:30:00.100');
+SELECT id, MIN(GREATEST(t, TIME'-00:00:00.999999')) FROM t1 GROUP BY id;
+id	MIN(GREATEST(t, TIME'-00:00:00.999999'))
+1	-00:00:00.999999
+SELECT id, MAX(LEAST   (t, TIME'-00:00:00.999999')) FROM t1 GROUP BY id;
+id	MAX(LEAST   (t, TIME'-00:00:00.999999'))
+1	-00:30:00.100000
+DROP TABLE t1;
+# Negative-zero re-canonicalisation: my_time_trunc() clears the neg flag
+# when truncation makes both the second_part and the integer part zero.
+CREATE TABLE t1 (id INT, t TIME(6)) ENGINE=HEAP;
+INSERT INTO t1 VALUES (1, '-00:00:00.000123'),(1, '00:00:00');
+SELECT id, MIN(GREATEST(t, TIME'00:00:00')) AS x FROM t1 GROUP BY id;
+id	x
+1	00:00:00.000000
+DROP TABLE t1;
+# Item_param coverage: a prepared statement with a TIME(N) placeholder
+# routes through Type_handler_time_common::Item_param_val_native().
+# Populate t with values close to / below the @p literal so that for
+# the negative-@p execution the GREATEST actually picks @p, exercising
+# the truncation path on the negative input.  Without the fix the
+# packed-form Option-A variant would shift the @p result by one second.
+CREATE TABLE t1 (id INT, t TIME(3)) ENGINE=HEAP;
+INSERT INTO t1 VALUES (1, '-01:00:00.500'),(1, '-00:30:00.100');
+PREPARE stmt FROM 'SELECT id, MIN(GREATEST(t, ?)) FROM t1 GROUP BY id';
+SET @p= TIME'00:00:00.999999';
+EXECUTE stmt USING @p;
+id	MIN(GREATEST(t, ?))
+1	00:00:00.999999
+SET @p= TIME'-00:00:00.999999';
+EXECUTE stmt USING @p;
+id	MIN(GREATEST(t, ?))
+1	-00:00:00.999999
+DEALLOCATE PREPARE stmt;
+DROP TABLE t1;
+#
+# End of 10.6 tests
+#
+#
 # Start of 10.9 tests
 #
 #

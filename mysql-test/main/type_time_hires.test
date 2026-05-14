@@ -208,6 +208,62 @@ drop table t1;
 --echo # End of 10.4 tests
 --echo #
 
+--echo #
+--echo # MDEV-23676 Assertion in my_time_packed_to_binary on MIN/MAX of GREATEST() with mixed-type args
+--echo #
+
+--echo # The crash reproducer from the JIRA: GREATEST of mixed-type args
+--echo # produces a packed TIME with finer microsecond precision than the
+--echo # arg's declared time_precision().
+CREATE TABLE t1 (a TIME(3), b DATETIME(3) NOT NULL);
+INSERT INTO t1 VALUES (NULL,'0000-00-00 00:00:00.000'),
+                     (NULL,'0000-00-00 00:00:00.000');
+SELECT MIN(GREATEST(5237686366631886848, 'v', NULL, a, NULL)) FROM t1 GROUP BY b;
+DROP TABLE t1;
+
+--echo # MDEV-23525 sanity: MIN/MAX of TIME with GROUP BY compares numerically,
+--echo # not string-wise.  Confirms this fix doesn't regress the prior fix.
+CREATE TABLE t1 (id INT, t TIME) ENGINE=HEAP;
+INSERT INTO t1 VALUES (1,'10:20:30'),(1,'100:20:30'),(1,'5:00:00');
+SELECT id, MIN(t), MAX(t) FROM t1 GROUP BY id;
+DROP TABLE t1;
+
+--echo # Negative-TIME truncation: declared precision (3) is lower than the
+--echo # finer-precision literal we GREATEST it against, so trunc(3) actually
+--echo # runs on negative values.  Without correct sign-handling in
+--echo # my_time_trunc(), the result would shift by one second.
+CREATE TABLE t1 (id INT, t TIME(3)) ENGINE=HEAP;
+INSERT INTO t1 VALUES (1, '-00:30:00.500'),(1, '-00:30:00.100');
+SELECT id, MIN(GREATEST(t, TIME'-00:00:00.999999')) FROM t1 GROUP BY id;
+SELECT id, MAX(LEAST   (t, TIME'-00:00:00.999999')) FROM t1 GROUP BY id;
+DROP TABLE t1;
+
+--echo # Negative-zero re-canonicalisation: my_time_trunc() clears the neg flag
+--echo # when truncation makes both the second_part and the integer part zero.
+CREATE TABLE t1 (id INT, t TIME(6)) ENGINE=HEAP;
+INSERT INTO t1 VALUES (1, '-00:00:00.000123'),(1, '00:00:00');
+SELECT id, MIN(GREATEST(t, TIME'00:00:00')) AS x FROM t1 GROUP BY id;
+DROP TABLE t1;
+
+--echo # Item_param coverage: a prepared statement with a TIME(N) placeholder
+--echo # routes through Type_handler_time_common::Item_param_val_native().
+--echo # Populate t with values close to / below the @p literal so that for
+--echo # the negative-@p execution the GREATEST actually picks @p, exercising
+--echo # the truncation path on the negative input.  Without the fix the
+--echo # packed-form Option-A variant would shift the @p result by one second.
+CREATE TABLE t1 (id INT, t TIME(3)) ENGINE=HEAP;
+INSERT INTO t1 VALUES (1, '-01:00:00.500'),(1, '-00:30:00.100');
+PREPARE stmt FROM 'SELECT id, MIN(GREATEST(t, ?)) FROM t1 GROUP BY id';
+SET @p= TIME'00:00:00.999999';
+EXECUTE stmt USING @p;
+SET @p= TIME'-00:00:00.999999';
+EXECUTE stmt USING @p;
+DEALLOCATE PREPARE stmt;
+DROP TABLE t1;
+
+--echo #
+--echo # End of 10.6 tests
+--echo #
 
 --echo #
 --echo # Start of 10.9 tests
