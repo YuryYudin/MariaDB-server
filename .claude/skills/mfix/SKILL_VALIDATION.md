@@ -215,3 +215,36 @@ The original mfix design said "the rulebook is what protects against bad decisio
 6. **Outstanding**: comment on MDEV-23676 with the analysis (bug crashes on 10.6 head; masked on 10.11; what to do about the fixVersions mismatch).
 7. **Outstanding**: dispatch one more subagent test on a *replication* or *Galera* MDEV to exercise the reviewer-table routing in those areas, which no validation run has touched.
 8. **Outstanding**: discard / amend the dry-run commit `5ed1bc1bc72` on `10.6-MDEV-23676` so the broken Option-A patch isn't preserved as if it were real. (Or amend it to Option B for a clean record.)
+
+---
+
+## Run #5 — Phase 9 regression validation after Phase-8 doc-tree integration
+
+**Date:** 2026-05-14
+**Target:** MDEV-23676 (the canonical gold-standard, re-used after each major mfix change).
+**Mode:** diagnose-only (Phase 0–2 only, per the new `Diagnose-only mode` section in SKILL.md).
+**Operator:** no-context `general-purpose` subagent, instructed to follow the updated SKILL.md literally and stop after Phase 2. Forbidden from reading the actual fix commit (`a69fc8d7158`) or anything after `d37e50c6d04` (the parent).
+
+### Outcome — verdict
+
+**PASSED.** The agent converged on the canonical Option B (caller-side `my_time_trunc()` on unpacked `MYSQL_TIME` in `Type_handler_time_common::Item_val_native_with_conversion[_result]`) without seeing the landed fix. Same call sites, same approach, same `Type_handler_timestamp_common::TIME_to_native` sibling-pattern reasoning.
+
+### What the Phase-8 additions delivered
+
+- **Phase 0 cache extended to `$DOCS_DIR`** — both caches (`$RULEBOOK_DIR` 11 files + `$DOCS_DIR` 23 files spanning nested CLAUDE.md / sql/docs/ / .claude/{reference,playbooks}/) populated correctly. No bugs in the caching loop.
+- **Phase 1 Step 0 (load context)** — the agent hit the keyword-index for `Type_handler`, loaded `sql/CLAUDE.md` §"Tables, fields, types", and was correctly oriented before mining the JIRA. Time spent in cold grep dropped meaningfully vs. earlier runs.
+- **Phase 2 step 3 (test-home grep heuristic)** — worked as advertised; surfaced `mysql-test/main/type_time_hires.test` as the home (which is exactly where MDEV-29924's prior fix landed and where MDEV-23676's fix should land).
+- **Diagnose-only mode** — agent correctly stopped at Phase 2 without trying to build / reproduce / patch.
+
+### Doc-tree gaps the validation surfaced
+
+Documented and applied as follow-on edits to `.claude/reference/keyword-index.md` in the same commit window:
+
+1. **No index entry for `MYSQL_TIME` / `Time::to_native` / `my_time_trunc` / `compat56.cc`** — the agent grepped these cold. Added an entry pointing at `sql/CLAUDE.md` §"Tables, fields, types" and naming MDEV-23676 / MDEV-29924 as the canonical sibling-pattern examples.
+2. **No index entry for Type_handler-sibling pattern continuity check** — added.
+3. **No index entry for `type_time_hires.test` / `type_time.test` / `func_time.test` as temporal-types test homes** — added.
+4. **No index entry for JIRA component → reviewer mapping** — added, pointing at `commit-and-process.md` §"Reviewer-area lookup table".
+
+### Confirmation that mfix is not regressed
+
+Prior validation runs (Run #1–#4) established the canonical Option B as the correct fix. Run #5 reproduced that same conclusion using only the updated SKILL.md. The Phase-8 doc-loading additions are net-positive (faster orientation, the agent named the right sibling pattern explicitly) and net-zero on correctness (same fix shape as Run #4 produced post-Auto-review, and the actual landed fix). **The skill is safe to keep as-is.**
