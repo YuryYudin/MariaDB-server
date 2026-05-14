@@ -1,6 +1,6 @@
 ---
 name: mfix
-description: Use when the user references an MDEV bug ticket (e.g. "fix MDEV-23676", "look at https://jira.mariadb.org/browse/MDEV-NNNNN") or asks to investigate a server crash, assertion failure, hang, or regression in this MariaDB tree. Not for new features, improvements, refactors, or documentation-only PRs — those get their own skills.
+description: Use when the user references an MDEV bug ticket ("fix MDEV-NNNNN", a "https://jira.mariadb.org/browse/MDEV-NNNNN" URL, or anything similar) or asks to investigate a server crash, assertion failure, hang, or regression in this MariaDB tree. Not for new features, improvements, refactors, or documentation-only PRs — those get their own skills.
 ---
 
 # mfix — End-to-end MDEV bug-fix workflow
@@ -162,7 +162,7 @@ This typically takes 5-10 minutes of reading. The MDEV-39179 end-to-end validati
 Set up a per-ticket working directory and pull the JIRA via the public REST API (no auth needed):
 
 ```sh
-TICKET=MDEV-23676
+TICKET=MDEV-NNNNN     # the bug ticket you're working on
 WORK_DIR="${MFIX_WORK_DIR:-$HOME/.cache/mfix/$TICKET}"
 mkdir -p "$WORK_DIR"
 .claude/skills/mfix/fetch-mdev.sh $TICKET > "$WORK_DIR/jira.json"
@@ -232,28 +232,37 @@ Decisions to make, each cross-referenced to a rule file:
 
 1. **Target branch**: `cat VERSION`, then compare to JIRA `fixVersions`. Pick the lowest branch in `fixVersions` that is *still maintained* per https://mariadb.org/about/#maintenance-policy. See [`commit-and-process.md` § Branch targeting](../../review/commit-and-process.md). When in doubt: 10.11 for non-critical bugs; 10.6 only if the ticket is marked critical / crashing-data-loss and the bug reproduces there.
 2. **Area expert / final reviewer**: look up the JIRA `components` field against the reviewer table in [`commit-and-process.md` § Reviewer-area lookup table](../../review/commit-and-process.md). E.g. *Temporal Types* → `vuvova`; *InnoDB* → `dr-m`/`Thirunarayanan`; *Replication* → `bnestere`. Cross-check against the JIRA's `assignee` — if there's a conflict, prefer the assignee.
-3. **Test home**: based on the components and the files in the stack trace, identify the most likely existing test file. Patterns: `sql/compat56.cc` + Temporal Types → `mysql-test/main/type_time_hires.{test,result}`. `sql/sql_acl.cc` → `mysql-test/main/grant.test` or similar. `storage/innobase/handler/*` → `mysql-test/suite/innodb/t/*`. **Important exception**: when the bug is in *SQL-layer state* (THD, sysvars, parser, ACL) but the crash *happens to fire* inside an engine (e.g. an `ut_ad` in `row0ins.cc` that detects a desync set by `SET transaction_read_only`), the test belongs in `mysql-test/main/` near the SQL-layer code that *creates* the bad state — not in `suite/innodb/`. Ask: "where is the fix going to live?" The test goes near the fix, not near the crash.
+3. **Test home**: based on the components and the files in the stack trace, identify the most likely existing test file. The general rule: **the test goes near the fix, not near the crash.** Three steps:
 
-   **When the patterns don't fit, use the grep heuristic** (surfaced by the MDEV-39179 validation):
-   ```sh
-   grep -lE 'OLD_VALUE|RETURNING|<feature-keyword>' \
-     mysql-test/main/*.test mysql-test/suite/*/t/*.test \
-     storage/innobase/mysql-test/*/t/*.test 2>/dev/null | head -10
-   ```
-   Substitute the SQL feature, function, or error message from your JIRA. Prefer **extending an existing test file** when one fits the area; create a new file only for a genuinely new feature. See [`mysql-test/CLAUDE.md` §"Where new tests go"](../../mysql-test/CLAUDE.md) (the cached copy at `$DOCS_DIR/mysql-test/CLAUDE.md`) and the [`add-mtr-test.md`](../playbooks/add-mtr-test.md) playbook (cached at `$DOCS_DIR/.claude/playbooks/add-mtr-test.md`) for the per-task-type routing table.
+   1. **Subsystem → suite routing** (the area maps to a suite even before you know the file):
+      - `sql/*` (server core) → `mysql-test/main/`
+      - `storage/innobase/*` → `storage/innobase/mysql-test/innodb/` for functional tests, `mysql-test/suite/sys_vars/` for InnoDB sysvar visibility
+      - `storage/<other-engine>/*` → that engine's bundled `mysql-test/` dir
+      - Replication / GTID / binlog → `mysql-test/suite/rpl/` or `suite/binlog/`
+      - WSREP / Galera → `mysql-test/suite/galera/`
+      - `plugin/<name>/*` → that plugin's bundled `mysql-test/` dir, or `mysql-test/suite/plugins/`
+      - ACL / privileges → `mysql-test/main/grant*.test` or `mysql-test/suite/grant/`
+   2. **Within the suite, prefer extending an existing file** that already covers nearby feature surface. Use the grep heuristic:
+      ```sh
+      grep -lE '<feature-keyword>|<function-name>|<symptom-phrase>' \
+        mysql-test/main/*.test mysql-test/suite/*/t/*.test \
+        storage/*/mysql-test/*/t/*.test 2>/dev/null | head -10
+      ```
+      Substitute the SQL feature, function, error code, or canonical phrase from your JIRA. The first hit is usually the right home. Create a new file only for a genuinely new feature surface — see [`mysql-test/CLAUDE.md` §"Where new tests go"](../../mysql-test/CLAUDE.md) (cached at `$DOCS_DIR/mysql-test/CLAUDE.md`) and the [`add-mtr-test.md`](../playbooks/add-mtr-test.md) playbook for the per-task-type routing table.
+   3. **Important exception**: when the bug is in *SQL-layer state* (THD, sysvars, parser, ACL) but the crash *happens to fire* inside an engine (e.g. an `ut_ad` in an InnoDB row insert that detects a desync set by `SET transaction_read_only`), the test belongs in `mysql-test/main/` near the SQL-layer code that *creates* the bad state — not in the engine's suite. Ask: *"where is the fix going to live?"* The test goes there.
 4. **Prior fixes to imitate** — find them via:
    ```sh
-   # By linked MDEV
-   git log --all --oneline --grep='MDEV-29924'
-   # By assertion text
-   git log --all --oneline --grep='log_10_int\[6 - dec\]'
-   # By symptom phrase
-   git log --all --oneline --grep='my_time_packed_to_binary'
+   # By linked MDEV (from .links[] and the JIRA description)
+   git log --all --oneline --grep='MDEV-<linked-NNNNN>'
+   # By assertion text or distinctive substring from the failing predicate
+   git log --all --oneline --grep='<distinctive substring from the assertion>'
+   # By symptom phrase (function name in the stack trace, SQL keyword)
+   git log --all --oneline --grep='<function or keyword>'
    ```
-   Read those commits — they're often 5-20 lines and they tell you both the fix pattern and the test pattern.
+   Read those commits — they're often 5-20 lines and they tell you both the *shape* of the fix and the *factoring* and the *test pattern*.
 5. **Loaded review-guide files** — pick from the table at top. Always: `checklist.md`, `commit-and-process.md`, `testing.md`. Plus area-specific files based on which directories will be touched.
 
-**Phase 2 deliverable**: a short written plan stating target branch, reviewer, test file, prior-fix commit(s) to imitate, and a fix-direction hypothesis (A/B/C-style options when not obvious — see how MDEV-23676 had three plausible directions).
+**Phase 2 deliverable**: a short written plan stating target branch, reviewer, test file, prior-fix commit(s) to imitate, and a fix-direction hypothesis from the Phase 5 four-bucket taxonomy (A-inner / A-caller / B / C). If the choice isn't obvious from the stack trace alone, list the candidate buckets with the trade-off between them.
 
 ## Phase 3 — Branch + build
 
@@ -295,7 +304,7 @@ Then check out the target branch:
 ```sh
 git fetch --tags origin
 TARGET=10.11           # from Phase 2
-TICKET=MDEV-23676
+TICKET=MDEV-NNNNN     # the bug ticket you're working on
 git checkout -b ${TARGET}-${TICKET} origin/${TARGET}
 
 BUILD_DIR="../build-${TARGET}-debug"
@@ -406,10 +415,6 @@ Work through these checks in order:
 
 **Phase 4 deliverable**: either (a) a minimal reproducer that crashes (or returns a wrong result) on the branch you'll actually push the fix on — *or* (b) a written-down negative-reproduction notebook that names the branches checked, the revisions tested, and the question to put back to the JIRA assignee.
 
-### Skill anti-pattern from validation run
-
-The first MDEV the skill was tested against was **MDEV-23676**. On the listed `fixVersions[0]` (`origin/10.11.17`), neither reproducer crashed — both returned NULL. **Premature conclusion**: "the bug appears already fixed." **Reality**: the same reproducer crashed deterministically on `origin/10.6.26`, the bug is still real on every branch, and `fixVersions` describes intent not current status. Don't make that mistake. The "target branch ≠ branch where bug currently reproduces" pattern is common for old regression-labelled tickets.
-
 ## Phase 5 — Investigate
 
 1. **Read the regression-introducing commit** (named in the JIRA) end-to-end:
@@ -418,15 +423,21 @@ The first MDEV the skill was tested against was **MDEV-23676**. On the listed `f
    ```
 2. **Read each prior-fix commit** identified in Phase 2.
 3. **Walk up the gdb stack** from the failing assertion. For each frame, ask: who computed the offending parameter? Where did the invariant slip?
-4. **Look for sibling code paths that already solve the same problem.** If a related type-handler / Item / operation has been through the same kind of fix, copy its pattern. Example: when fixing `Type_handler_time_common::Item_val_native_with_conversion`, check what `Type_handler_timestamp_common::TIME_to_native` does at the analogous call site — if it already truncates *at the caller*, your Time-side fix should mirror that, not invent a new layer.
-5. **Decide between fix options.** Typical patterns:
-   - **A. Defensive truncate/clamp** at the inner layer where the invariant is checked. Narrow, low-risk, *but*: low-level primitives often have surprising sign/aliasing/edge cases (e.g. signed-`%` truncation, sentinel-vs-data overloads). Adding logic there frequently introduces a *new* silent bug while masking the *real* upstream defect.
-   - **B. Metadata propagation fix at the caller.** Mirrors the way the related prior-fix MDEV solved an adjacent path. Usually correct. Usually what the assignee already considered.
-   - **C. Semantic redesign** — e.g. mixing TIME with INT in `GREATEST` should return NULL. Larger scope; **file a separate MDEV** rather than expanding this one ([`api-and-architecture.md` § When to file a separate MDEV](../../review/api-and-architecture.md)).
-6. **Pattern continuity is a strong default.** If a previous MDEV for the *same* assertion / *same* invariant was fixed by the *same* assignee using pattern X, X is the strong default for your fix. Picking a different pattern needs explicit justification on the JIRA *before* you implement, not after. Reviewers spot this kind of inconsistency immediately.
-7. **Stop-gate: don't pick A just because A is smaller to write.** A is the *operator-easy* option, not the *project-correct* option. Defensive low-level fixes appear ~3× in the 6-month PR-review corpus *and were rejected each time* in favour of upstream fixes (see `.claude/review/api-and-architecture.md` "don't widen utility APIs to accept invalid inputs — fix the caller"). If you are reaching for A while B or C exists, **post your A-vs-B analysis on the JIRA before implementing**.
+4. **Look for sibling code paths that already solve the same problem.** If a related type-handler / `Item` / operation / engine method has been through the same kind of fix, the *shape* AND the *factoring* of that fix is the strong default. Check both:
+   - **Shape** — what does the sibling do (truncate / clamp / propagate / re-validate)?
+   - **Factoring** — does the sibling extract a helper that you should also extract / call, or is the cleanup inlined at each site?
+   Adopt both. Inventing a new shape OR a new factoring when the sibling has one is a reviewer-rejection risk.
+5. **Decide between fix options.** Four buckets, in roughly decreasing order of "operator-easy" and increasing order of "project-correct":
+   - **A-inner. Defensive truncate / clamp at the inner layer** where the invariant is checked (the asserter itself, or the format primitive). Narrow, low-risk on paper, *but*: inner primitives often manipulate packed / encoded forms where signed-`%`, signed-`>>`, sentinel-vs-data overloads, and endianness lurk. Adding logic at the asserter also makes the asserter's documented invariant *lie* — it no longer documents what callers must do. Strongly discouraged.
+   - **A-caller. Defensive truncate / clamp at the caller**, on the unpacked / pre-format representation, immediately before the inner method that asserts. This is the pattern most sibling code paths use when there's no upstream metadata to propagate. Accept this when (a) the sibling does it and (b) no upstream metadata-propagation fix is reasonable. **Watch for DRY**: if the same caller-cleanup appears in N sibling methods, the sibling has almost certainly factored it into a helper — match that factoring, don't copy-paste.
+   - **B. Metadata propagation at the upstream type system.** Make the value arrive at the inner method already in the correct shape, by fixing the metadata / type-handler / `Item` constructor / `get_*` path that produced it. Mirrors the way the related prior-fix MDEV solved an adjacent path. Preferable to A-caller when feasible — but often invasive enough to require a separate ticket and a senior reviewer.
+   - **C. Semantic redesign** — e.g. "this operation should return NULL on type mismatch, not produce a malformed value". Larger scope; **file a separate MDEV** rather than expanding this one ([`api-and-architecture.md` § When to file a separate MDEV](../../review/api-and-architecture.md)).
 
-**Phase 5 deliverable**: a one-paragraph design note saying which fix option you chose, why, and which file(s) and function(s) you plan to change. **If you chose A and a sibling path uses B-style** — record explicitly why A is right *for this case* and why a sibling-pattern B fix would be wrong. If you can't articulate that, the choice is wrong.
+   **Important taxonomy note**: this is a four-way distinction, not three. Historical mfix runs labelled A-caller fixes as "B" because the project accepts them and they look caller-side. They're not B. If you're about to mutate a value just before the inner method to make its assertion happen to hold, that's A-caller — be honest about it.
+6. **Pattern continuity is a strong default.** If a previous MDEV for the *same* assertion / *same* invariant was fixed by the *same* assignee using pattern X, X is the strong default for your fix. Picking a different pattern needs explicit justification on the JIRA *before* you implement, not after. Reviewers spot this kind of inconsistency immediately.
+7. **Stop-gate: don't pick A-inner just because A-inner is smaller to write.** A-inner is the *operator-easy* option, not the *project-correct* option. Defensive *inner-layer* fixes appear ~3× in the 6-month PR-review corpus *and were rejected each time* in favour of upstream fixes (see `.claude/review/api-and-architecture.md` "don't widen utility APIs to accept invalid inputs — fix the caller"). If you are reaching for A-inner while A-caller, B, or C exists, **post your option analysis on the JIRA before implementing**.
+
+**Phase 5 deliverable**: a one-paragraph design note stating the chosen bucket (A-inner / A-caller / B / C), the sibling code path you matched (shape AND factoring), and the files / functions affected. **If you chose A-inner and a sibling uses any other bucket** — record explicitly why your case is different. If you can't articulate that, the choice is wrong.
 
 ## Phase 6 — Fix
 
@@ -454,14 +465,13 @@ cd "$BUILD_DIR/mysql-test"
 **Sanity-probe the *prior* bug.** When the JIRA names a regression-introducing commit (Phase 1), that commit was *fixing* an earlier bug. Your patch is at the boundary of that earlier fix and could silently reintroduce it. Run an ad-hoc test against the prior bug's reproducer (typically findable from `git show <regression-hash>` or the prior MDEV's description):
 
 ```sh
-# Example for MDEV-23676: the regression-introducing commit fixed MDEV-23525
-# ("Wrong result of MIN(time_expr) and MAX(time_expr) with GROUP BY"). Sanity-
-# check that fix still holds:
+# Skeleton: drop a small test reproducing the *prior* MDEV's symptom (not the
+# current MDEV's). The reproducer for the prior bug usually appears in the
+# regression-introducing commit's test diff or the prior MDEV's JIRA body.
 cat > mysql-test/main/${TICKET//-/_}_sanity.test <<'EOF'
-CREATE TABLE t1 (id INT, t TIME) ENGINE=HEAP;
-INSERT INTO t1 VALUES (1,'10:20:30'),(1,'100:20:30'),(1,'5:00:00');
-SELECT id, MIN(t), MAX(t) FROM t1 GROUP BY id;  -- must compare numerically
-DROP TABLE t1;
+# Reproducer for the prior MDEV (the one this commit's regression originated from).
+# Should still produce the post-prior-fix correct result after your patch lands.
+<SQL from the prior MDEV / its test diff>
 EOF
 ./mariadb-test-run.pl --suite=main ${TICKET//-/_}_sanity
 rm -f mysql-test/main/${TICKET//-/_}_sanity.test   # ad-hoc, don't commit
@@ -478,7 +488,7 @@ If the prior bug reappears, the choice between options A/B/C from Phase 5 was wr
    rm -f mysql-test/main/${TICKET//-/_}*.test mysql-test/suite/*/t/${TICKET//-/_}*.test
    ```
 
-2. **Promote the reproducer to a permanent test** in the file identified in Phase 2 (e.g. `type_time_hires.test`, `trans_read_only.test`). **Place it in the right region of the file.** MariaDB test files accumulate region markers like `--echo # End of 10.4 tests`, `--echo # Start of 10.9 tests` over their history; insert your new test in the region for your target branch:
+2. **Promote the reproducer to a permanent test** in the file identified in Phase 2. **Place it in the right region of the file.** MariaDB test files accumulate region markers like `--echo # End of 10.4 tests`, `--echo # Start of 10.9 tests` over their history; insert your new test in the region for your target branch:
    - If your target is `10.6` and the file has `End of 10.4 tests` but no `End of 10.6 tests` yet → insert after the `End of 10.4 tests` block and add a new `End of 10.6 tests` block after your test.
    - If `End of <your_branch> tests` already exists → insert just before it.
 
@@ -503,26 +513,21 @@ If the prior bug reappears, the choice between options A/B/C from Phase 5 was wr
    git diff mysql-test/main/<file>.result   # eyeball the new block
    ```
 
-4. **Run the wider local suite** matching the changed area. Enumerate candidates first because test names vary across branches:
+4. **Run the wider local suite** matching the changed area. Enumerate candidates first because test names vary across branches and across the project's history:
    ```sh
-   # List candidates by keyword:
-   ls mysql-test/main/ | grep -iE 'time|group|func_group|type_time'
-   # or use prefix selectors:
-   #   ./mariadb-test-run.pl --suite=main --do-test=type_time
-   #   ./mariadb-test-run.pl --suite=main --do-test=func_time
+   # List candidates by keyword(s) drawn from your fix's area —
+   # function names, SQL keywords, error codes, table/sysvar names,
+   # nearby files' basenames. Adapt to your area; examples follow.
+   ls mysql-test/main/ | grep -iE '<keyword>(\|<keyword2>)?'
+   # Or use prefix / wildcard selectors:
+   ./mariadb-test-run.pl --suite=main --do-test=<prefix>
    ```
    Then run the selected tests:
    ```sh
    cd "$BUILD_DIR/mysql-test"
-   ./mariadb-test-run.pl --suite=main \
-     func_time func_time_hires func_time_round \
-     type_time type_time_hires type_time_round type_time_6065 \
-     type_timestamp type_timestamp_hires type_timestamp_round \
-     datetime_456 type_temporal_mariadb53 \
-     func_group func_group_innodb group_by group_by_innodb group_by_null
-   # For InnoDB fixes, swap in:
-   #   ./mariadb-test-run.pl --suite=innodb --do-test=<keyword>
+   ./mariadb-test-run.pl --suite=<suite> <test1> <test2> ...
    ```
+   Suite by area: `--suite=main` for `sql/` changes; `--suite=innodb` (or other engine suites) for engine work; `--suite=rpl` / `binlog` / `galera` for replication; `--suite=sys_vars` for any new system variable. Always include at least a handful of tests that exercise *nearby* feature surface, not just the one you added — silent regressions usually show up in the neighbours.
 5. **Re-record any drifted `.result` files**. Do not hand-edit. Verify each diff is plausible. For each drifted test:
    ```sh
    ./mariadb-test-run.pl --record main.<drifted_test_name>
@@ -607,8 +612,9 @@ Then walk [`checklist.md`](../../review/checklist.md) end-to-end. Common things 
 | "10.11 is the obvious target." | Verify from `fixVersions` every time. Wrong target = "please rebase to X" preliminary-review hit. |
 | "The reproducer doesn't crash on my target branch, so the bug is fixed." | Wrong on two counts: `fixVersions` says where the fix *should land*, not where the bug *currently reproduces*; older branches commonly still crash when newer branches have refactor-masked the path. **Always test the branch named in the latest crash-report comment.** See *Phase 4 → Reproducer doesn't fire*. |
 | "The JIRA's Confirmed status is old — maybe it really is fixed." | If the assignee is a senior maintainer they haven't been sitting on a non-bug for months. Trust the JIRA state more than your absent reproducer. |
-| "Option A is smaller, I'll just do A and skip the JIRA discussion." | "Smaller" is operator-easy, not project-correct. Defensive low-level fixes appear in the 6-month PR-review corpus *3× and were rejected each time*. If the sibling type-handler already does B at the caller (`Type_handler_timestamp_common::TIME_to_native` does `tm.trunc(decimals)` at `sql_type.cc:9363-9374`), B is required for the Time path too. Post your A-vs-B analysis on the JIRA before implementing. |
-| "Phase 7.5 (automated review) is overkill — I read my own diff carefully." | Real measured outcome: on the MDEV-23676 dry-run, my Phase-5-through-7 walk produced a fix that introduced **a silent data-corruption bug for negative TIME values** (verified numerically), a **replication byte-divergence bug**, and **violated my own documented `api-and-architecture.md` rule**. The `pr-review-toolkit:code-reviewer` + `:silent-failure-hunter` agents in ~7 min flagged all three. Skipping 7.5 = guaranteed reviewer-reject. |
+| "A-inner is smaller, I'll just do A-inner and skip the JIRA discussion." | "Smaller" is operator-easy, not project-correct. Inner-layer defensive fixes appear in the 6-month PR-review corpus *3× and were rejected each time*. Check the sibling first: if a sibling type-handler / Item / engine method already does A-caller, B, or C at the right layer, you must match that pattern. Post your option analysis on the JIRA before implementing. (See Phase 5 §"Decide between fix options".) |
+| "Phase 7.5 (automated review) is overkill — I read my own diff carefully." | Validated outcome on the canonical dry-run target: a same-session Phase-5-through-7 walk produced a fix that introduced **a silent data-corruption bug** (verified numerically), **a replication wire-format divergence**, and **violated a documented `api-and-architecture.md` rule** — all three flagged by `pr-review-toolkit:code-reviewer` + `:silent-failure-hunter` in ~7 minutes. A second iteration's "B-style" fix passed the automated review but still had a DRY violation across 3 sibling methods that a structural pass would have flagged. Skipping 7.5 = guaranteed reviewer-reject; running with insufficient structural breadth = reviewer-comment cycle. See `SKILL_VALIDATION.md` for the per-run details. |
+| "I just need to copy-paste my fix into the N similar sibling methods." | If you're about to copy-paste a 3+-line fix into 2+ sibling methods, **stop**. The sibling layer almost certainly has a helper — find it (`grep` for the sibling's analogous method) and call it, or extract one yourself. Identical hunks across a diff trip the structural-review pass and trigger reviewer DRY comments. (See Phase 5 §"Look for sibling code paths" — the *factoring* matters as much as the *shape*.) |
 | "I'll write the regression test against the bug's symptom, not the fix's edge cases." | Reproducing the crash is necessary; covering the *fix's* edge cases is what makes the test catch your-own-future-introduced bugs. A defensive truncate needs a negative-input test. A metadata-propagation fix needs a precision-mismatch test. The bug's reproducer alone doesn't exercise these. |
 
 ## Red flags — stop and reconsider

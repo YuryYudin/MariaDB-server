@@ -221,6 +221,20 @@ test -f "$WORK_DIR/loaded-profiles.txt" \
 
 This is the only chat output between Phase 0 and Phase 5 — keep it short.
 
+### 2d — Detect structural concerns up front
+
+Run the structural-concerns detector against the diff. It scans for DRY violations (a `+` line appearing 3+ times — the canonical "copy-pasted across N sibling methods" signal), softer copy-paste signals (`+` lines appearing exactly twice), and unverified claims in inline comments ("mirroring X", "same as X"), plus a multi-method-on-same-class heuristic (S2/S6) that flags when the diff touches 2+ methods of the same class.
+
+```sh
+bash .claude/skills/mreview/lib/detect-structural-concerns.sh \
+       "$WORK_DIR/diff.patch" \
+     > "$WORK_DIR/structural-concerns.txt" || true
+```
+
+The script exits 1 when concerns are found (0 otherwise). Either way it writes `structural-concerns.txt`. The orchestrator passes that file's contents into every agent's prompt as **prior-detection hints** — see Phase 3 prompt template below.
+
+The intent is aggressive: false-positives are fine because the agent is required to confirm-or-dismiss each hint; false-negatives are what produce the reviewer-comment cycles we want to avoid.
+
 ---
 
 ## Phase 3 — Dispatch
@@ -265,14 +279,72 @@ Inputs (all under $WORK_DIR; absolute paths preferred):
                      each readable as $WORK_DIR/rulebook/<name>
   Profiles:          files listed in $WORK_DIR/loaded-profiles.txt
                      (may be empty), each at $WORK_DIR/profiles/<name>
+  Prior detections: $WORK_DIR/structural-concerns.txt
+                     (lines tagged S1..S6 — likely DRY, copy-paste, mirror-
+                     claim, or sibling-pattern issues identified in the diff
+                     before any agent ran. CONFIRM OR DISMISS EACH; do not
+                     silently drop them. A dismissal requires a one-sentence
+                     justification in your report's preface.)
   PR metadata:       $WORK_DIR/pr-meta.json           (present only for GH PR targets)
   Existing comments: $WORK_DIR/pr-existing-comments.json  (present only for GH PR targets)
 
 Apply the rulebook and (if any) profiles as your authoritative source of project
 norms. Do NOT invent rules that aren't in the rulebook.
 
-For each finding, emit exactly one line of this shape:
-  - **<Severity>** [<path>:<line>] <one-sentence body> (cited from <rulebook>:<section>)
+In addition to your agent-specific lens, run a MANDATORY structural-review pass
+over the whole diff. Reviewers regularly catch these classes of defect on a
+visual scan; surface them aggressively, not only when a rulebook section happens
+to be cited.
+
+  STRUCTURAL REVIEW — at least Important severity for any of these.
+
+  S1. Repeated hunks (DRY violation across the diff).
+      Compute textual similarity across `+` blocks. If any two `+` hunks share
+      ≥3 contiguous identical or near-identical lines (modulo a renamed local
+      variable or a constructor argument), flag it. A 3-way repeat with one
+      varying argument is almost always a missed helper-function extraction.
+
+  S2. Visible sibling code with a different factoring.
+      For each function the diff modifies, grep the same file for sibling
+      methods with `_common::` in their names, or analogous methods on related
+      type-handlers / handlers / Items. If a sibling already factors out the
+      same cleanup that the diff inlines (or vice-versa), flag the asymmetry.
+      The sibling is the project's accepted shape; deviating from it is a
+      reviewer-rejection risk.
+
+  S3. Commit-message claim vs code-shape mismatch.
+      If the commit body says "mirrors X", "matches X", "same as X", or
+      "fixed in the style of X", verify by reading X. Common mismatches:
+      mirrors-the-shape-but-not-the-factoring (e.g. sibling uses a helper,
+      diff inlines; or vice-versa); mirrors-the-name-but-not-the-arguments;
+      mirrors-the-class-but-not-the-precondition-checks.
+
+  S4. Defensive truncate / clamp at the wrong layer.
+      A truncate-or-clamp immediately before an inner method's assertion is
+      almost never "metadata propagation" / "Option B" — it is caller-side
+      defensive truncation ("A-caller" in mfix terminology). If the commit
+      message claims Option B but the code mutates a value to fit the
+      asserter's contract, that is the A/B mislabel pattern: flag at
+      Important severity.
+
+  S5. Copy-paste in the same diff with a varying argument.
+      `Time t(thd, item); t.trunc(d); return t.to_native(to, d);` repeated
+      three times across three sibling methods, varying only on the Time
+      constructor, is the canonical example. The fix is a private helper —
+      flag it as Important even if each individual block is correct.
+
+  S6. Sibling-pattern continuity across pattern dimensions.
+      Sibling-pattern continuity has two axes: (a) the SHAPE of the fix
+      (truncate-then-pack vs propagate-metadata vs replace-the-call), and
+      (b) the FACTORING (inlined-at-each-site vs helper-method). Reviewers
+      check both. The diff must match the sibling on BOTH axes, or include
+      a justification in the commit body for the divergence.
+
+For each finding (rulebook-derived OR structural), emit exactly one line of this
+shape:
+  - **<Severity>** [<path>:<line>] <one-sentence body> (cited from <rulebook>:<section> OR S<N>)
+
+Where the structural-pass findings cite `S1`..`S6` instead of a rulebook section.
 
 Severity vocabulary (use exactly these four words):
   Blocker     — would cause this PR to be rejected at review
