@@ -279,9 +279,9 @@ Most of these are single bullets from [`.claude/review/testing.md`](../.claude/r
 - [`sql/CLAUDE.md`](../sql/CLAUDE.md) — when a test is exercising server-side code.
 - [`storage/innobase/CLAUDE.md`](../storage/innobase/CLAUDE.md) — when the test is for InnoDB (auto-discovered `innodb*` suites under `storage/innobase/mysql-test/`).
 - [`mysql-test/README`](README) — short usage notes for system-installed packages.
+- [`.claude/playbooks/add-mtr-test.md`](../.claude/playbooks/add-mtr-test.md) — concrete "where does my test go + how to record it" walk-through.
+- [`.claude/reference/glossary.md`](../.claude/reference/glossary.md) — definitions for `.opt`, `.combinations`, `.rdiff`, "suite", combinations matrix vocabulary.
 - Forward references (not yet written):
-  - [`.claude/playbooks/add-mtr-test.md`](../.claude/playbooks/add-mtr-test.md) (Phase 3) — concrete "where does my test go + how to record it" walk-through.
-  - [`.claude/reference/glossary.md`](../.claude/reference/glossary.md) (Phase 2) — definitions for `.opt`, `.combinations`, `.rdiff`, "suite", combinations matrix vocabulary.
   - [`.claude/reference/debug-tooling.md`](../.claude/reference/debug-tooling.md) (Phase 5) — deeper rr/gdb/sanitizer usage from inside an mtr run.
 
 ---

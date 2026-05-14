@@ -69,7 +69,8 @@ Grouped by domain. Alphabetical within each group. Entries cite `<file>` and whe
 - **`.combinations` files** — [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"File naming and conventions".
 - **`.opt` / `-master.opt`** — [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"File naming and conventions".
 - **`.rdiff`** — [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"File naming and conventions".
-- **`.test` file shape** — [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"A `.test` file: 30-second tour".
+- **`.test` file shape** — [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"A `.test` file: 30-second tour"; [`.claude/playbooks/add-mtr-test.md`](../playbooks/add-mtr-test.md) §"Steps".
+- **add an MTR test (workflow)** — [`.claude/playbooks/add-mtr-test.md`](../playbooks/add-mtr-test.md).
 - **`--big-test`** — [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"Common runtime flags".
 - **`--echo` headers between sub-sections** — [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"A `.test` file: 30-second tour".
 - **`--error <ER_*>`** — [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"mysqltest directive cheat-sheet".
