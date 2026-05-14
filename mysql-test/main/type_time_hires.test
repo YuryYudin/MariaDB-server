@@ -232,5 +232,25 @@ SELECT CAST(1 AS TIME(4294967296));
 SELECT CAST(1 AS TIME(999999999999999999999999999999));
 
 --echo #
+--echo # MDEV-23676 Assertion `(((nr) % (1LL << 24)) % (int) log_10_int[6 - dec]) == 0' failed in my_time_packed_to_binary
+--echo #
+CREATE TABLE t1 (a CHAR(8));
+INSERT INTO t1 VALUES (''),('');
+--disable_warnings
+SELECT MAX(TIMEDIFF(171727883291171, '2020-12-12')) AS x FROM t1;
+SELECT WEEKOFYEAR(a) AS f,
+       MAX(TIMEDIFF(171727883291171, '2020-12-12')) AS x FROM t1 GROUP BY f;
+--enable_warnings
+DROP TABLE t1;
+
+CREATE TABLE t1 (a TIME(3), b DATETIME(3) NOT NULL);
+INSERT INTO t1 VALUES (NULL,'0000-00-00 00:00:00.000'),
+                      (NULL,'0000-00-00 00:00:00.000');
+--disable_warnings
+SELECT MIN(GREATEST(5237686366631886848, 'v', NULL, a, NULL)) FROM t1 GROUP BY b;
+--enable_warnings
+DROP TABLE t1;
+
+--echo #
 --echo # Start of 10.9 tests
 --echo #
