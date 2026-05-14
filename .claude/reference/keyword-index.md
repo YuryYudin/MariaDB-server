@@ -45,6 +45,8 @@ Grouped by domain. Alphabetical within each group. Entries cite `<file>` and whe
 - **`sys_vars.cc`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"System variables"; §"Where to start"; forward ref `.claude/playbooks/add-system-variable.md` (Phase 3).
 - **`THD` lifecycle** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"THD lifecycle".
 - **`Type_handler` / `sql_type.cc`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Tables, fields, types"; [`sql/docs/item-system.md`](../../sql/docs/item-system.md) §"`Type_handler` — the type dispatch table".
+- **`MYSQL_TIME` / `Time::to_native` / `my_time_trunc` / `compat56.cc`** (temporal native format) — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Tables, fields, types"; [`sql/docs/item-system.md`](../../sql/docs/item-system.md) §"`Type_handler` — the type dispatch table". MDEV-23676 / MDEV-29924 are the canonical sibling-pattern examples (truncation belongs at the caller, in unpacked `MYSQL_TIME`, mirroring `Type_handler_timestamp_common::TIME_to_native`). Helper `my_time_trunc()` lives in [`include/my_time.h`](../../include/my_time.h).
+- **Type_handler-sibling pattern continuity** — when fixing `Type_handler_<typeA>_common::<method>`, grep the analogous `Type_handler_<typeB>_common::<method>` for the prior pattern before designing a fix. Cited as a recurring Phase-5 (Investigate) check in [`.claude/skills/mfix/SKILL.md`](../skills/mfix/SKILL.md) and exercised by the MDEV-23676 validation.
 
 ## InnoDB (storage/innobase/)
 
@@ -80,6 +82,7 @@ Grouped by domain. Alphabetical within each group. Entries cite `<file>` and whe
 - **`--record`** — [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"Recording results".
 - **`--replace_regex` / `--replace_column`** — [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"mysqltest directive cheat-sheet".
 - **DEBUG_SYNC patterns** — [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"DEBUG_SYNC patterns"; root [`CLAUDE.md`](../../CLAUDE.md).
+- **Temporal-types test homes** — `mysql-test/main/type_time_hires.test` (fractional precision), `mysql-test/main/type_time.test` (general TIME), `mysql-test/main/func_time.test` (date/time functions). For sysvars touching temporal handling: `mysql-test/suite/sys_vars/`. Canonical recent additions: MDEV-23676, MDEV-29924, MDEV-39179 (RETURNING + OLD_VALUE on temporal).
 - **disabled tests / `disabled.def`** — [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"Skip lists & disabled tests"; [`.claude/review/testing.md`](../review/testing.md) §"Disabled / skip lists".
 - **`End of <maj.min> tests` footer** — [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"A `.test` file: 30-second tour".
 - **`have_*.inc` (include files)** — [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"Common include files".
@@ -141,6 +144,7 @@ Grouped by domain. Alphabetical within each group. Entries cite `<file>` and whe
 - **commit message style (50/72, MDEV prefix)** — [`.claude/review/commit-and-process.md`](../review/commit-and-process.md) §"Commit message"; root [`CLAUDE.md`](../../CLAUDE.md).
 - **forward-merge chain** — [`branches-and-forward-merges.md`](branches-and-forward-merges.md); [`.claude/review/commit-and-process.md`](../review/commit-and-process.md) §"Branch targeting".
 - **JIRA / MDEV** — [glossary.md](glossary.md); [`.claude/review/commit-and-process.md`](../review/commit-and-process.md) §"JIRA / MDEV".
+- **JIRA component → reviewer mapping** — the `components` field on a JIRA ticket points to the area-owning reviewer. Lookup table at [`.claude/review/commit-and-process.md`](../review/commit-and-process.md) §"Reviewer-area lookup table". Cross-check against the JIRA `assignee`; on conflict prefer the assignee. Used by `mfix` Phase 2 step 2.
 - **PR / pull request flow** — root [`CLAUDE.md`](../../CLAUDE.md) §"Working with the tree"; [`.claude/review/commit-and-process.md`](../review/commit-and-process.md).
 - **rebase, don't merge** — [`.claude/review/commit-and-process.md`](../review/commit-and-process.md) §"Rebase, don't merge".
 - **security policy** — root [`CLAUDE.md`](../../CLAUDE.md) §"Working with the tree"; `SECURITY.md`.
