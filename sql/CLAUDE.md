@@ -76,7 +76,21 @@ Every SQL expression is an `Item` subtree.
 | [`item_windowfunc.{cc,h}`](item_windowfunc.cc) | Window functions. |
 | [`item_geofunc.{cc,h}`](item_geofunc.cc) | GIS functions. |
 | [`item_vectorfunc.{cc,h}`](item_vectorfunc.cc) | Vector / similarity functions (MariaDB 11.8+). |
-| [`item_create.{cc,h}`](item_create.cc) | **Factory.** Maps SQL identifier → `Item_func_*` constructor. Where a new function name gets registered. |
+| [`item_create.{cc,h}`](item_create.cc) | **Factory.** Maps SQL identifier → `Item_func_*` constructor. Where a new function name gets registered. Subclass `Create_func` (or its arity helpers `Create_func_arg0` / `Create_func_arg1` / `Create_func_arg2` / `Create_func_arg3` / `Create_native_func`); the arity check lives in the factory, not in `fix_fields`. The registry is `native_functions_hash` populated by `item_create_init()`; existing entries — search for `static Native_func_registry` arrays in `item_create.cc` — are the copy-paste template. |
+
+**Choosing an `Item_func` base class**: pick by *return type*, not by *argument type*.
+
+| Base | When |
+|---|---|
+| `Item_int_func` | Returns an integer. |
+| `Item_real_func` | Returns a `double`. Most numeric functions whose precision exceeds `DECIMAL` use this. |
+| `Item_decimal_func` | Returns a `DECIMAL`. |
+| `Item_str_func` | Returns a string (you'll typically derive from `Item_str_ascii_func` or `Item_str_ascii_checksum_func` for fixed-charset results). |
+| `Item_datefunc` / `Item_timefunc` / `Item_datetimefunc` / `Item_temporal_func` | Returns the named temporal type. |
+| `Item_func_hybrid_field_type` / `Item_func_numhybrid` | Return type depends on argument types (e.g. `GREATEST`, `IF`). Override `fix_length_and_dec_*()` per type family. |
+| `Item_bool_func` | Boolean/predicate (`IS NULL`, `<`, `BETWEEN`). |
+
+Then override (at minimum): one `val_*()` method matching your return type (`val_int`, `val_real`, `val_str`, `val_decimal`, `get_date`); `fix_length_and_dec()` to set precision/length/charset/null-ability; `func_name()` returning a `LEX_CSTRING` with the SQL identifier; and `get_copy()` so the optimizer can clone your item during transformation (use the `COPY_OR_SAME` / `get_item_copy` helpers — copy-paste from a sibling).
 
 ### Tables, fields, types
 
@@ -184,6 +198,7 @@ The single most error-prone area of `sql/`. A prepared statement (`PREPARE … F
 - **Never leave dangling pointers.** If the rewrite changed an `Item *` somewhere, `Item::cleanup` must reset it. The debug-build assertion `PROTECT_STATEMENT_MEMROOT` (enabled in `CMAKE_BUILD_TYPE=Debug`, see [`.claude/review/build-and-cmake.md`](../.claude/review/build-and-cmake.md)) trips on writes to the statement arena from a non-prepare context — that's the canary.
 - **Preserve the original tree under `THD::stmt_arena`.** [`sql_prepare.cc`](sql_prepare.cc) is the entry point: `mysql_stmt_prepare`, `Prepared_statement::execute`, `mysql_stmt_execute_common`.
 - **Cover prepared and procedural execution in tests.** Reviewers flag any new SQL feature whose MTR test doesn't include `prepare … execute …` and stored-procedure variations — see [`.claude/review/testing.md`](../.claude/review/testing.md).
+- **`get_copy()` and `func_name()` are easy to forget** when subclassing `Item_func`. `get_copy()` lets the optimizer clone your item during transformation (without it, a transformed copy will alias the original's children and you'll get crashes on re-execution). `func_name()` is used for `EXPLAIN`, error messages, and `JSON_OBJECTAGG`-style introspection — missing it shows up as an empty function name in user output. Copy both from a sibling subclass.
 
 Deep dive — covered in `sql/docs/item-system.md` (Phase 4).
 
