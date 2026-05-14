@@ -193,7 +193,7 @@ The factory determines argument arity **at parse time** (using `Create_func_arg0
 - **Creating a new `item_*.cc` file when an existing cluster fits.** Fragmentation. The 11.8 vector family and the Oracle `TO_NUMBER` family are the only recent justifiable new-cluster cases (cited above). Default to extending the existing cluster.
 - **Numeric error codes in tests.** `--error 1234` → use `--error ER_FOO_BAR`. Names are stable; numbers change perception. [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"mysqltest directive cheat-sheet".
 - **New `ER_*` error code added in the middle of `errmsg-utf8.txt`.** It's an ABI — codes go at the end. If your function needs a new error message, follow [`add-error-message.md`](add-error-message.md).
-- **Out-of-alphabetical-order insertion into `func_array[]`.** Reviewers grep|sort the registry — keep the alpha order. Comment at line 6320-6324 of `item_create.cc`.
+- **Out-of-alphabetical-order insertion into `func_array[]`.** Reviewers `grep|sort` the registry — keep the alpha order. The in-file comment above the array makes this explicit: *"keep 1 line per entry, it makes grep | sort easier"*.
 - **Forgetting Oracle-mode shape.** If the function is `sql_mode='oracle'` only, register it in `func_array_oracle_overrides[]` — not the global `func_array[]`. The rule: *"Is this function available in default mode?"* — yes → `func_array[]` (even if Oracle-themed, e.g. `ADD_MONTHS`); no → `func_array_oracle_overrides[]` (e.g. MDEV-37319 `MONTHS_BETWEEN`). See step 6 above for the full decision.
 
 ## Validation
