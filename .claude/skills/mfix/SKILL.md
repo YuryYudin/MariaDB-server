@@ -47,9 +47,28 @@ for f in checklist commit-and-process testing coding-style innodb \
   git show "$REVIEW_REF:.claude/review/$f.md" > "$RULEBOOK_DIR/$f.md" 2>/dev/null
 done
 ls "$RULEBOOK_DIR"   # verify
+
+# Cache the broader doc tree (nested CLAUDE.md, sql/docs/, .claude/reference/,
+# .claude/playbooks/). Same rationale: these live on `main` only.
+DOCS_DIR="$WORK_DIR/docs"
+mkdir -p "$DOCS_DIR"
+for path in $(git ls-tree -r --name-only "$REVIEW_REF" -- \
+                CLAUDE.md sql/CLAUDE.md storage/innobase/CLAUDE.md \
+                mysql-test/CLAUDE.md sql/docs/ \
+                .claude/reference/ .claude/playbooks/ \
+              2>/dev/null | grep -E '\.md$'); do
+  out="$DOCS_DIR/$path"
+  mkdir -p "$(dirname "$out")"
+  git show "$REVIEW_REF:$path" > "$out" 2>/dev/null
+done
+ls -R "$DOCS_DIR" | head -40   # verify
 ```
 
-From this point on, **every reference below to `.claude/review/<file>.md` means `$RULEBOOK_DIR/<file>.md`**. The cached copies are read-only references; they don't change when you switch branches.
+From this point on:
+- **Every reference below to `.claude/review/<file>.md` means `$RULEBOOK_DIR/<file>.md`.**
+- **Every reference below to a nested `CLAUDE.md`, `sql/docs/<file>.md`, `.claude/reference/<file>.md`, or `.claude/playbooks/<file>.md` means the corresponding `$DOCS_DIR/<path>` copy.**
+
+The cached copies are read-only references; they don't change when you switch branches.
 
 If the sanity-check fails: the rulebook is missing from this clone. Either pull from the upstream that has it, or, in a clone where the docs were never committed, the skill is not usable yet — report and stop.
 
@@ -80,6 +99,21 @@ If the sanity-check fails: the rulebook is missing from this clone. Either pull 
 8. Commit+PR   →  Single squashed commit; checklist.md walked
 ```
 
+### Diagnose-only mode
+
+If you only need to *understand* a bug — to triage, plan, or hand off — run Phases 0-2 and stop. Skip Phases 3 (Branch+build), 4 (Reproduce), 6 (Fix), 7 (Test), 7.5 (Auto-review), 8 (Commit).
+
+Phase 2's deliverable in diagnose-only mode is a written diagnosis + a fix sketch (1-2 paragraphs of pseudocode), not actual code. The eventual fixer can pick up from there.
+
+Diagnose-only is the right mode when:
+
+- The user asks "what's the deal with MDEV-X?" but doesn't ask for a fix.
+- You don't have a build dir and one would take too long to set up.
+- The bug is on a branch you don't have built locally.
+- You're doing a JIRA-triage sweep across many tickets.
+
+Announce the mode at the start: "running in diagnose-only mode" vs "running full mfix flow". This was the operating mode of the MDEV-39179 end-to-end validation that surfaced the Phase 1 context-loading improvements.
+
 **Stop-gate rule:** if the deliverable for a phase is not in hand, stop and report back. Do not proceed by guessing. Three rationalizations to refuse:
 
 | Rationalization | Reality |
@@ -89,6 +123,41 @@ If the sanity-check fails: the rulebook is missing from this clone. Either pull 
 | "10.11 is the default target, so don't bother checking fix-versions." | Wrong target branch is the most common preliminary-review rejection. **Always** verify from `fixVersions`. |
 
 ## Phase 1 — Discover
+
+### Step 0 — Load the relevant documentation context
+
+**Before** mining the JIRA, walk the cached doc tree to orient yourself. This is the cheapest way to know where the bug lives and what the right fix shape is. Reading these now saves 10× the cost in Phase 1's grep-based exploration.
+
+Order:
+
+1. **Keyword index** — `cat "$DOCS_DIR/.claude/reference/keyword-index.md"` and grep for concepts named in the JIRA title / summary / description. The index maps `<keyword>` → where the concept is **taught** (not just mentioned). Examples: `OLD_VALUE`, `MEM_ROOT`, `mtr_t`, `GTID`, `binlog`, `Item_func`.
+
+2. **Subsystem `CLAUDE.md`** — based on the JIRA `components` field or the stack trace, load one or more of:
+   - `sql/*` → `cat "$DOCS_DIR/sql/CLAUDE.md"` — file-cluster map, THD lifecycle, MEM_ROOT, items, PS re-execution.
+   - `storage/innobase/*` → `cat "$DOCS_DIR/storage/innobase/CLAUDE.md"` — subdir map, ha_innodb bridge, latch hierarchy, mtr_t, dberr_t.
+   - `mysql-test/*` → `cat "$DOCS_DIR/mysql-test/CLAUDE.md"` — suite layout, directive cheat-sheet, PS/SP variant skeleton.
+   - Root `CLAUDE.md` for cross-area work.
+
+3. **Deep references** under `$DOCS_DIR/sql/docs/` — load on demand from the subsystem CLAUDE.md's "Where to start" table. Available:
+   - `item-system.md`, `parser.md`, `optimizer.md`, `replication.md`, `stored-programs.md`, `acl-and-privileges.md`, `charset-and-collation.md`.
+
+4. **Cross-cutting references** under `$DOCS_DIR/.claude/reference/` — load by symptom:
+   - OOM / arena lifetime / `MEM_ROOT` confusion → `memory-management.md`.
+   - Wrong / silent error / `my_error` vs `push_warning` → `error-handling.md`.
+   - Race condition / deadlock / `mysql_mutex_t` → `threading-and-locks.md`.
+   - "How do I trace this?" / DEBUG_SYNC / sanitizer triage → `debug-tooling.md`.
+   - Forward-merge mechanics → `branches-and-forward-merges.md`.
+
+5. **Matching playbook** under `$DOCS_DIR/.claude/playbooks/` — if the bug fix has the shape of a new sysvar, SQL function, error message, MTR test, or forward-merge, load the playbook. (mfix is for *fixing*; the playbook covers the procedural surface of *adding* that the fix may need.) Skip if no playbook applies.
+
+This typically takes 5-10 minutes of reading. The MDEV-39179 end-to-end validation showed that ~80% of an agent's exploration time was eliminated when the relevant doc was loaded up front.
+
+**Step 0 deliverable**: 3-5 lines in the notebook (created in Step 1 below) under a `## Loaded context` heading, listing:
+- which subsystem `CLAUDE.md` was loaded;
+- which deep reference(s) / cross-cutting reference(s) were loaded;
+- the 1-2 keyword-index entries that pointed at the right starting file.
+
+### Step 1 — Set up the working dir and fetch the JIRA
 
 Set up a per-ticket working directory and pull the JIRA via the public REST API (no auth needed):
 
@@ -164,6 +233,14 @@ Decisions to make, each cross-referenced to a rule file:
 1. **Target branch**: `cat VERSION`, then compare to JIRA `fixVersions`. Pick the lowest branch in `fixVersions` that is *still maintained* per https://mariadb.org/about/#maintenance-policy. See [`commit-and-process.md` § Branch targeting](../../review/commit-and-process.md). When in doubt: 10.11 for non-critical bugs; 10.6 only if the ticket is marked critical / crashing-data-loss and the bug reproduces there.
 2. **Area expert / final reviewer**: look up the JIRA `components` field against the reviewer table in [`commit-and-process.md` § Reviewer-area lookup table](../../review/commit-and-process.md). E.g. *Temporal Types* → `vuvova`; *InnoDB* → `dr-m`/`Thirunarayanan`; *Replication* → `bnestere`. Cross-check against the JIRA's `assignee` — if there's a conflict, prefer the assignee.
 3. **Test home**: based on the components and the files in the stack trace, identify the most likely existing test file. Patterns: `sql/compat56.cc` + Temporal Types → `mysql-test/main/type_time_hires.{test,result}`. `sql/sql_acl.cc` → `mysql-test/main/grant.test` or similar. `storage/innobase/handler/*` → `mysql-test/suite/innodb/t/*`. **Important exception**: when the bug is in *SQL-layer state* (THD, sysvars, parser, ACL) but the crash *happens to fire* inside an engine (e.g. an `ut_ad` in `row0ins.cc` that detects a desync set by `SET transaction_read_only`), the test belongs in `mysql-test/main/` near the SQL-layer code that *creates* the bad state — not in `suite/innodb/`. Ask: "where is the fix going to live?" The test goes near the fix, not near the crash.
+
+   **When the patterns don't fit, use the grep heuristic** (surfaced by the MDEV-39179 validation):
+   ```sh
+   grep -lE 'OLD_VALUE|RETURNING|<feature-keyword>' \
+     mysql-test/main/*.test mysql-test/suite/*/t/*.test \
+     storage/innobase/mysql-test/*/t/*.test 2>/dev/null | head -10
+   ```
+   Substitute the SQL feature, function, or error message from your JIRA. Prefer **extending an existing test file** when one fits the area; create a new file only for a genuinely new feature. See [`mysql-test/CLAUDE.md` §"Where new tests go"](../../mysql-test/CLAUDE.md) (the cached copy at `$DOCS_DIR/mysql-test/CLAUDE.md`) and the [`add-mtr-test.md`](../playbooks/add-mtr-test.md) playbook (cached at `$DOCS_DIR/.claude/playbooks/add-mtr-test.md`) for the per-task-type routing table.
 4. **Prior fixes to imitate** — find them via:
    ```sh
    # By linked MDEV
