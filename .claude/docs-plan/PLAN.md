@@ -338,6 +338,32 @@ Once Phase 1 docs are live, mfix Phase 1 ("Discover") currently spends tokens gr
 
 Concrete edit: replace mfix `SKILL.md` Phase 1's exploration guidance with a two-step "load context, then explore" pattern. The context-loading step is a 1-line table lookup, not a research project.
 
+### Sub-task 8a: diagnosis-only off-ramp
+
+Surfaced by the MDEV-39179 end-to-end validation (2026-05-14): a fresh subagent doing diagnosis-only work found mfix's full 9-phase ceremony too heavy because it couldn't reach Phase 4 (build/reproduce) without a build dir. Add an explicit "diagnose-only" mode to mfix:
+
+- New invocation flag (or recognised intent) that stops cleanly after Phase 2 (Plan), skipping Phases 3 (Branch+build), 4 (Reproduce), 6 (Fix), 7 (Test), 7.5 (Auto-review), 8 (Commit).
+- Phase 2's deliverable in diagnose-only mode is a written diagnosis + proposed fix sketch (the same shape the MDEV-39179 validation produced).
+- Diagnose-only mode still benefits from Phases 0–2 (rulebook cache, MDEV fetch, prior-fix discovery).
+- Use case: "I want to understand this bug" (e.g. triage, planning), not "I want to ship a fix".
+
+### Sub-task 8b: document the test-home grep heuristic
+
+Same validation surfaced: mfix Phase 2's "test home" guidance is thin. The agent's actual move was `grep -r <feature> mysql-test/main/*.test` to find existing related tests. Document this:
+
+- In mfix `SKILL.md` Phase 2, add an explicit "Find the natural test home" step with the grep recipe: `grep -lE 'OLD_VALUE|RETURNING|sysvar_name|<feature>' mysql-test/main/*.test mysql-test/suite/*/t/*.test | head -10`.
+- Cross-reference `mysql-test/CLAUDE.md` §"Where new tests go (per task type)" for the per-task-type table.
+- Cite the validation finding as the source ("identified during MDEV-39179 end-to-end validation").
+
+### Sub-task 8c: incorporate keyword-index lookup
+
+After landing `.claude/reference/keyword-index.md` (gap-fix #3 of the same validation), mfix Phase 1 should also consult it. The lookup order becomes:
+
+1. `.claude/reference/keyword-index.md` — find the section that names the bug's concept.
+2. The subsystem `CLAUDE.md` cited from the index.
+3. `.claude/playbooks/<matching>.md` if there's a matching task type.
+4. Grep-based exploration only after the above.
+
 ---
 
 ## Phase 9 — mfix regression validation

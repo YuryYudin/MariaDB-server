@@ -204,6 +204,39 @@ Deep dive — covered in `sql/docs/item-system.md` (Phase 4).
 
 ---
 
+## TABLE record buffers & paired `Field` pointers
+
+Every open `TABLE` has at least two row buffers: `table->record[0]` ("the current row") and `table->record[1]` ("the previous row"). Their use depends on the operation:
+
+- **`UPDATE`** — `record[0]` holds the new row being constructed; `record[1]` holds the original row. Storage engines compare them, BEFORE/AFTER UPDATE triggers see both, RBR emits both images in the binlog, and `UPDATE ... RETURNING OLD_VALUE(col)` reads from `record[1]`.
+- **`DELETE`** — `record[0]` holds the row being deleted.
+- **`INSERT`** — only `record[0]` is meaningful.
+
+`Field` carries **paired pointers** mirroring this dual-buffer layout:
+
+| Pointer | Points into | Read by |
+|---|---|---|
+| `Field::ptr` | `record[0]` | `val_int` / `val_str` / `val_decimal` / `get_date` — the active row's data. |
+| `Field::ptr_old` | `record[1]` (when set) | Code that wants the previous row's data; set by `Item_old_field::fix_fields` and similar. |
+| `Field::null_ptr` | `record[0]`'s null bitmap | `Field::is_null()`. Points *outside* `record[0]` for `NOT NULL` columns — use `maybe_null()` to test. |
+| `Field::null_ptr_old` | `record[1]`'s null bitmap | The previous-row counterpart of `null_ptr`. |
+
+**Invariant: swap pairs, not halves.** Code that temporarily redirects a `Field` to read from `record[1]` (e.g. [`Item_old_field::send`](item.cc) for `RETURNING OLD_VALUE(col)`) must swap **both** `ptr ↔ ptr_old` *and* `null_ptr ↔ null_ptr_old`. Swapping only `ptr` reads the OLD row's data but checks the NEW row's null bit — wrong NULL semantics on nullable columns. **MDEV-39179 was exactly this bug.**
+
+When initialising `ptr_old` / `null_ptr_old`:
+
+```cpp
+field->ptr_old = field->table->record[1] +
+                 field->offset(field->table->record[0]);
+if (field->null_ptr)
+  field->null_ptr_old = field->table->record[1] +
+                        (field->null_ptr - field->table->record[0]);
+```
+
+Test coverage: any regression test for an UPDATE-time bug should use a **nullable** column, cover **both directions** (`old=NULL → new=non-NULL` AND `old=non-NULL → new=NULL`), and include a prepared-statement variant — see [`mysql-test/CLAUDE.md`](../mysql-test/CLAUDE.md) §"PS/SP variant skeleton". A single-direction test passes accidentally if you swap only one half of the pair.
+
+---
+
 ## MEM_ROOT vs heap
 
 Quick rules (full details in `.claude/reference/memory-management.md`, Phase 5):
