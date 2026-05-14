@@ -51,7 +51,7 @@ The factory determines argument arity **at parse time** (using `Create_func_arg0
 
 3. **Pick the cluster file** (decide `<cluster>` for the next two steps). Use [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Items (expressions)" — the table maps domain → cluster file. **Create a new `item_*.{cc,h}` file only for a wholly-new function family** (e.g. `item_vectorfunc.cc` was new in 11.8 for the vector family). Don't fragment for a single function — pitfall, see below.
 
-4. **Declare the class in `<cluster>.h`.** Pattern (modelled on [`Item_func_uuid_short`](../../sql/item_func.h) at line 4559 and [`Item_func_abs`](../../sql/item_func.h) at line 1973):
+4. **Declare the class in `<cluster>.h`.** Pattern (modelled on `Item_func_uuid_short` and `Item_func_abs` in [`sql/item_func.h`](../../sql/item_func.h) — `grep -n 'class Item_func_uuid_short\|class Item_func_abs' sql/item_func.h`):
 
    ```cpp
    class Item_func_bar : public Item_int_func
@@ -73,10 +73,10 @@ The factory determines argument arity **at parse time** (using `Create_func_arg0
 
    Notes:
    - **`func_name_cstring()`** — return a `LEX_CSTRING` with the SQL identifier; used by `EXPLAIN`, error messages, `JSON_OBJECTAGG`-style introspection. Missing → empty function name in output.
-   - **`shallow_copy()`** is the current API (the older `get_copy()` was renamed) — the optimizer's clone hook during transformation. Missing → crashes on re-execution after optimizer rewrites. See [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Prepared statements & re-execution".
-   - The `get_item_copy<T>` helper is in [`sql/item.h`](../../sql/item.h) around line 2872.
+   - **`shallow_copy()`** is the current API on `main`, `10.6`, `10.11`, `11.4`, `11.8`, `12.2`, `12.3` — the optimizer's clone hook during transformation. Missing → crashes on re-execution after optimizer rewrites. See [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Prepared statements & re-execution". **Backports note:** on `12.0` and `12.1` only, the method is named `do_get_copy(THD*) const` — same signature, same purpose, different name. Confirm by `git show <branch>:sql/item.h | grep -E 'shallow_copy|do_get_copy'` before patching a back-port.
+   - The `get_item_copy<T>` helper is defined in [`sql/item.h`](../../sql/item.h) — `grep -n 'get_item_copy' sql/item.h`.
 
-5. **Implement the methods in `<cluster>.cc`.** Pattern (the null-propagation idiom is from [`Item_func_crc32::val_int`](../../sql/item_strfunc.cc) line 4546 et seq.):
+5. **Implement the methods in `<cluster>.cc`.** Pattern (the null-propagation idiom is from `Item_func_crc32::val_int` in [`sql/item_strfunc.cc`](../../sql/item_strfunc.cc) — `grep -n 'Item_func_crc32::val_int' sql/item_strfunc.cc`):
 
    ```cpp
    longlong Item_func_bar::val_int()
@@ -96,14 +96,15 @@ The factory determines argument arity **at parse time** (using `Create_func_arg0
    }
    ```
 
-   - Propagate `null_value` from **every** argument that can be NULL (see Pitfalls — same family as MDEV-39179).
+   - Propagate `null_value` from **every** argument that can be NULL (see Pitfalls — same family as MDEV-39179). For temporal-input functions that call `get_date()` for each arg, the idiom is `if ((null_value= args[0]->get_date(thd, &t0, mode) || args[1]->get_date(thd, &t1, mode))) return 0;` — OR the booleans into a single `null_value` assignment.
    - For `Item_str_func`: also call `agg_arg_charsets_for_string_result(collation, args, arg_count)` in `fix_length_and_dec()` to derive the result collation from the inputs (skipping this is a common review-rejection — see Pitfalls).
    - Set `set_maybe_null()` (replaces the older `maybe_null= true`) only if a NULL **can** appear in the result; an always-non-NULL function should leave it unset so the optimizer can elide null-checks.
+   - **`Item_real_func` and `Item_int_func` have sensible default `fix_length_and_dec()`** implementations (`Item_real_func` sets `decimals= NOT_FIXED_DEC; max_length= float_length(decimals)`). You only need to override if you want to tighten precision, set `set_maybe_null()` conditionally, or aggregate charset/collation from string-typed children.
    - For functions interacting with `record[1]` / `Field::ptr_old` — extremely rare for new code — read [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"TABLE record buffers" first. MDEV-39179 was a swap-only-half-the-pointers bug.
 
 6. **Register in the factory in [`sql/item_create.cc`](../../sql/item_create.cc).** Two parts.
 
-   **(a) The `Create_func_<name>` subclass.** Pattern (modelled on `Create_func_abs` at line 91 and its impl at line 3162):
+   **(a) The `Create_func_<name>` subclass.** Pattern (modelled on `Create_func_abs` — `grep -n 'class Create_func_abs\|Create_func_abs::create_1_arg' sql/item_create.cc`):
 
    ```cpp
    class Create_func_bar : public Create_func_arg1
@@ -127,15 +128,20 @@ The factory determines argument arity **at parse time** (using `Create_func_arg0
    }
    ```
 
-   Variants by arity: `Create_func_arg0` / `Create_func_arg1` / `Create_func_arg2` / `Create_func_arg3` (each enforces arity at parse time and emits `ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT`). Use `Create_native_func` when the argument count is **variable** — override `create_native()` and do your own arg-count check (see `Create_func_aes_encrypt` at line 143 for a real variadic example).
+   Variants by arity: `Create_func_arg0` / `Create_func_arg1` / `Create_func_arg2` / `Create_func_arg3` (each enforces arity at parse time and emits `ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT`). Use `Create_native_func` when the argument count is **variable** — override `create_native()` and do your own arg-count check. Real variadic example: `Create_func_aes_encrypt` (find it via `grep -n 'class Create_func_aes_encrypt' sql/item_create.cc`).
 
-   **(b) The `Native_func_registry` entry.** Append to `func_array[]` (line 6325 of `item_create.cc`, **alphabetically sorted, one line per entry** — the comment at line 6322 says *"keep 1 line per entry, it makes grep | sort easier"*):
+   **(b) The `Native_func_registry` entry.** Append to the appropriate array — locate them with `grep -nE 'static.*Native_func_registry' sql/item_create.cc`. Two main destinations:
+
+   - **`func_array[]`** — the *unconditional* registry; the function is callable in any `sql_mode`. Use this if the function exists in default (non-Oracle) mode, even if you also enable it in Oracle mode.
+   - **`func_array_oracle_overrides[]`** — registered **only** when `sql_mode='ORACLE'`. Use this when the function is exclusively an Oracle compatibility function (the canonical example is `MONTHS_BETWEEN`, MDEV-37319).
+
+   Decision rule: *"Is this function available in default mode?"* — yes → `func_array[]`; no → `func_array_oracle_overrides[]`. Don't confuse "Oracle-themed" (e.g. `ADD_MONTHS`, available everywhere) with "Oracle-only" (e.g. `MONTHS_BETWEEN`, mode-gated).
+
+   Entries are **alphabetically sorted, one line per entry** — the in-file comment says *"keep 1 line per entry, it makes grep | sort easier"*:
 
    ```cpp
    { { STRING_WITH_LEN("BAR") }, BUILDER(Create_func_bar)},
    ```
-
-   For mode-specific exposure (Oracle-only, etc.) there are sibling arrays — search `static.*Native_func_registry` in the file. `func_array[]` is the unconditional registry.
 
 7. **Add the MTR test.** Cross-link to [`add-mtr-test.md`](add-mtr-test.md) for naming, location, and recording. **Mandatory coverage** for a new function:
    - **Happy path** with multiple input types (int, decimal, negative, large) as relevant to your function.
@@ -146,6 +152,8 @@ The factory determines argument arity **at parse time** (using `Create_func_arg0
    - **Non-default `sql_mode`** if the function's behaviour is mode-sensitive (e.g. Oracle-compat, `PIPES_AS_CONCAT`, `PAD_CHAR_TO_FULL_LENGTH`).
 
    File-naming: `mysql-test/main/func_<group>.test` is the convention for a new function family ([`add-mtr-test.md`](add-mtr-test.md) §"Naming"). Default to **extending** an existing `func_*.test` if one fits the domain (see MDEV-31736 below).
+
+   For an **Oracle-mode-only** function (registered in `func_array_oracle_overrides[]`), the test goes under [`mysql-test/suite/compat/oracle/t/<name>.test`](../../mysql-test/suite/compat/oracle/t/) instead — the suite's startup includes already set `sql_mode=ORACLE`, so don't repeat that at file scope. Use a sibling test (e.g. `func_add_months.test`) as the shape template. Add a negative case at the end that flips `sql_mode=DEFAULT` and expects `ER_SP_DOES_NOT_EXIST` to prove the gating works.
 
 8. **Record and run.** From the build directory:
 
@@ -186,7 +194,7 @@ The factory determines argument arity **at parse time** (using `Create_func_arg0
 - **Numeric error codes in tests.** `--error 1234` → use `--error ER_FOO_BAR`. Names are stable; numbers change perception. [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"mysqltest directive cheat-sheet".
 - **New `ER_*` error code added in the middle of `errmsg-utf8.txt`.** It's an ABI — codes go at the end. If your function needs a new error message, follow [`add-error-message.md`](add-error-message.md).
 - **Out-of-alphabetical-order insertion into `func_array[]`.** Reviewers grep|sort the registry — keep the alpha order. Comment at line 6320-6324 of `item_create.cc`.
-- **Forgetting Oracle-mode shape.** If the function is `sql_mode='oracle'` only, register it in the per-mode array (e.g. `func_array_oracle_overrides[]` at line 6560 of `item_create.cc`) — not the global `func_array[]`. MDEV-37319 (`MONTHS_BETWEEN`) is the canonical example.
+- **Forgetting Oracle-mode shape.** If the function is `sql_mode='oracle'` only, register it in `func_array_oracle_overrides[]` — not the global `func_array[]`. The rule: *"Is this function available in default mode?"* — yes → `func_array[]` (even if Oracle-themed, e.g. `ADD_MONTHS`); no → `func_array_oracle_overrides[]` (e.g. MDEV-37319 `MONTHS_BETWEEN`). See step 6 above for the full decision.
 
 ## Validation
 
@@ -212,14 +220,22 @@ Confirm:
 - **HEAD at write time:** `f03e562b97c` (branch `main`).
 - **Files surveyed:**
   - [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Items (expressions)" (cluster table, base-class chooser table), §"Prepared statements & re-execution" (`shallow_copy`/`func_name_cstring` consequences), §"TABLE record buffers" (for the rare-but-cited record-buffer case), §"Where to start" (entry pointer to this playbook). Cited heavily; not duplicated.
-  - [`sql/item_create.cc`](../../sql/item_create.cc) — `Create_func_abs` declaration (line 91), implementation (line 3162), `func_array[]` shape (line 6325), `Create_func_aes_encrypt` (line 143, variadic example), `func_array_oracle_overrides` (line 6560).
-  - [`sql/item_func.h`](../../sql/item_func.h) — `Item_func_abs` (line 1973), `Item_func_uuid_short` (line 4559) for the minimal class template; `shallow_copy()` pattern via `get_item_copy<T>`.
-  - [`sql/item.h`](../../sql/item.h) — `shallow_copy()` virtual at line 2859, `get_item_copy<T>` template at line 2872.
-  - [`sql/item_strfunc.cc`](../../sql/item_strfunc.cc) — `Item_func_crc32::val_int` (line 4546) for the `null_value` propagation idiom.
+  - [`sql/item_create.cc`](../../sql/item_create.cc) — `Create_func_abs` declaration + impl, `func_array[]` shape, `Create_func_aes_encrypt` (variadic example), `func_array_oracle_overrides[]`. Find each via `grep -n` since exact line numbers drift across releases.
+  - [`sql/item_func.h`](../../sql/item_func.h) — `Item_func_abs`, `Item_func_uuid_short` (minimal class templates); `shallow_copy()` pattern via `get_item_copy<T>`.
+  - [`sql/item.h`](../../sql/item.h) — `shallow_copy()` virtual and `get_item_copy<T>` template.
+  - [`sql/item_strfunc.cc`](../../sql/item_strfunc.cc) — `Item_func_crc32::val_int` for the `null_value` propagation idiom.
+  - [`sql/item_timefunc.h`](../../sql/item_timefunc.h) / [`item_timefunc.cc`](../../sql/item_timefunc.cc) — for the temporal-input null-propagation pattern.
   - [`mysql-test/CLAUDE.md`](../../mysql-test/CLAUDE.md) §"PS/SP variant skeleton", §"Where new tests go" — cited; test machinery lives there.
   - [`.claude/playbooks/add-mtr-test.md`](add-mtr-test.md) — the test workflow; delegated, not duplicated.
   - [`.claude/playbooks/add-error-message.md`](add-error-message.md) — referenced for the `ER_*` case.
   - [`.claude/docs-plan/PLAN.md`](../docs-plan/PLAN.md) §"Phase 3 — Task 7" — brief for this playbook.
   - Real commits: `cd483cfe082` (MDEV-37319 MONTHS_BETWEEN), `2fcc2b4f516` (MDEV-20023 TRUNC), `b10e209d169` (MDEV-20022 TO_NUMBER), `a35f744d787` (MDEV-31736 FORMAT_BYTES), `9ccf02a9a76` (MDEV-32885 VEC_DISTANCE), `a3c2a17d364` (MDEV-38967 STR_TO_DATE).
 - **Deliberately excluded:** the full `Item` class hierarchy and `fix_fields` plumbing (deferred to `sql/docs/item-system.md`, Phase 4); aggregate-function machinery (`Item_sum`, different shape — would need its own playbook); window-function aggregates (different machinery); UDF authoring (separate template under [`plugin/udf_examples/`](../../plugin/udf_examples/)); the per-language-mode registry surface (Oracle, hint, geom — search `Native_func_registry` in `item_create.cc` for the full list).
-- **Refresh procedure:** when a new cluster file is added (last was `item_numconvfunc.cc` for MDEV-20022) or the `Item` API renames a hook (last was `get_copy` → `shallow_copy`), update the class skeleton in step 4 and the source-of-truth code-line citations in this audit trail; bump `last-verified`.
+- **Refresh procedure:** when a new cluster file is added (last was `item_numconvfunc.cc` for MDEV-20022) or the `Item` API renames a hook (history: `get_copy` → `do_get_copy` → `shallow_copy`; `12.0` and `12.1` still ship `do_get_copy`), update the class skeleton in step 4 and the backport footnote; bump `last-verified`.
+
+## Validation history
+
+- **2026-05-14 end-to-end test** (MDEV-37319, MONTHS_BETWEEN, dispatched as a no-context fresh subagent against pre-fix commit `2fcc2b4f516`):
+  - The agent's plan matched the landed fix file-for-file (5 files, same base class, same factory pattern, same test location).
+  - Surfaced and fixed in this playbook: (a) backport-branch API rename note for `do_get_copy`; (b) replaced stale line numbers with `grep` recipes; (c) clarified the `func_array[]` vs `func_array_oracle_overrides[]` decision rule with the *"available in default mode?"* test; (d) added the `Item_real_func` / `Item_int_func` default-`fix_length_and_dec` note; (e) added the temporal-input null-propagation idiom; (f) added the Oracle-mode-only test-suite cross-reference.
+  - Total time the agent estimated for an end-to-end MDEV-37319 implementation, including the playbook-driven steps: ~3 hours (within the playbook's stated 2-4 hour range).
