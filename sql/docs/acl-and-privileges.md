@@ -248,8 +248,8 @@ The exception that proves the rule: the **`ALLOWED_BY_SUPER_BEFORE_*` aggregates
 - [`.claude/review/testing.md`](../../.claude/review/testing.md) — prepared-statement and stored-procedure variant requirement.
 - [`sql/privilege.h`](../privilege.h) — the privilege bit registry. The "when adding new privilege bits" comment block is the canonical checklist; §7 above is a paraphrase.
 - [`sql/sql_acl.h`](../sql_acl.h) — public API: `check_access`, `check_grant`, `check_table_access`, `check_grant_routine`, `mysql_grant`, `mysql_table_grant`, `mysql_routine_grant`, `mysql_grant_role`.
-- Forward references:
-  - `sql/docs/stored-programs.md` (Phase 5) — `Sp_handler::get_priv_hash`, the four routine hashes, `SQL SECURITY DEFINER` semantics.
+- Related references:
+  - [`sql/docs/stored-programs.md`](stored-programs.md) — `Sp_handler::get_priv_hash`, the four routine hashes, `SQL SECURITY DEFINER` semantics.
 
 ## How this doc was built
 

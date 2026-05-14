@@ -30,7 +30,7 @@ Grouped by domain. Alphabetical within each group. Entries cite `<file>` and whe
 - **`item_create.cc`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Items (expressions)"; [`.claude/playbooks/add-sql-function.md`](../playbooks/add-sql-function.md) §"Register in the factory".
 - **`JOIN::optimize` / `JOIN::exec`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Optimizer & executor"; [`sql/docs/optimizer.md`](../../sql/docs/optimizer.md) §"Phase ordering" (deep reference for optimizer work).
 - **`LEX` / `LEX_STRING` / `LEX_CSTRING`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Parser & lexer"; [`sql/docs/parser.md`](../../sql/docs/parser.md) §"The `LEX` struct" and §"Identifier wrappers"; [glossary.md](glossary.md).
-- **`MEM_ROOT` / `thd->mem_root` / `stmt_arena`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"MEM_ROOT vs heap"; forward ref [`memory-management.md`](memory-management.md) (Phase 5).
+- **`MEM_ROOT` / `thd->mem_root` / `stmt_arena`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"MEM_ROOT vs heap"; [`memory-management.md`](memory-management.md) (deep reference: arena-lifetime table, Query_arena swap, PS re-execution rule, mem_root_array).
 - **`my_error()` vs `push_warning_printf()` vs `sql_print_error()`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"`my_error()` vs `push_warning_printf()` vs `sql_print_error()`"; [`.claude/review/logging-and-errors.md`](../review/logging-and-errors.md).
 - **NULL handling** — [`.claude/review/correctness-and-security.md`](../review/correctness-and-security.md) §"NULL handling"; [`sql/docs/item-system.md`](../../sql/docs/item-system.md) §"`null_value` and `maybe_null`".
 - **`OLD_VALUE()` / `Item_old_field`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"TABLE record buffers & paired `Field` pointers".
@@ -41,7 +41,7 @@ Grouped by domain. Alphabetical within each group. Entries cite `<file>` and whe
 - **`PROTECT_STATEMENT_MEMROOT`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Prepared statements & re-execution".
 - **`record[0]` / `record[1]`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"TABLE record buffers & paired `Field` pointers".
 - **`RETURNING` (`UPDATE ... RETURNING`, `INSERT ... RETURNING`)** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"TABLE record buffers" (the `OLD_VALUE()` interaction).
-- **stored programs / `sp_head` / `sp_pcontext`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Stored programs"; forward ref `sql/docs/stored-programs.md` (Phase 5).
+- **stored programs / `sp_head` / `sp_pcontext`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Stored programs"; [`sql/docs/stored-programs.md`](../../sql/docs/stored-programs.md) (deep reference: lifecycle, opcodes, pcontext vs rcontext, parameter passing, cursors, triggers).
 - **`sys_vars.cc`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"System variables"; §"Where to start"; forward ref `.claude/playbooks/add-system-variable.md` (Phase 3).
 - **`THD` lifecycle** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"THD lifecycle".
 - **`Type_handler` / `sql_type.cc`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Tables, fields, types"; [`sql/docs/item-system.md`](../../sql/docs/item-system.md) §"`Type_handler` — the type dispatch table".
@@ -102,10 +102,10 @@ Grouped by domain. Alphabetical within each group. Entries cite `<file>` and whe
 
 - **`alloc_root`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"MEM_ROOT vs heap".
 - **error log writers (`sql_print_*`)** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"`my_error()` …"; [`.claude/review/logging-and-errors.md`](../review/logging-and-errors.md) §"Logging functions".
-- **OOM handling** — [`.claude/review/correctness-and-security.md`](../review/correctness-and-security.md); forward ref [`error-handling.md`](error-handling.md) (Phase 5).
+- **OOM handling** — [`.claude/review/correctness-and-security.md`](../review/correctness-and-security.md); [`error-handling.md`](error-handling.md) §"OOM"; [`memory-management.md`](memory-management.md) §"OOM behavior".
 - **`my_malloc` / `my_free`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"MEM_ROOT vs heap".
 - **`my_safe_alloca`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"MEM_ROOT vs heap".
-- **`mysql_mutex_t` / `SAFE_MUTEX`** — root [`CLAUDE.md`](../../CLAUDE.md) §"Things to be aware of"; forward ref [`threading-and-locks.md`](threading-and-locks.md) (Phase 5).
+- **`mysql_mutex_t` / `SAFE_MUTEX`** — root [`CLAUDE.md`](../../CLAUDE.md) §"Things to be aware of"; [`threading-and-locks.md`](threading-and-locks.md) (deep reference: thread types, THD invariant, mutex/rwlock/cond APIs, atomics, lock-order graph).
 - **`Sql_condition` / `Diagnostics_area` / `Warning_info`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Errors & messages"; [`.claude/review/logging-and-errors.md`](../review/logging-and-errors.md).
 
 ## Build, sanitizers, CI
@@ -161,6 +161,16 @@ Grouped by domain. Alphabetical within each group. Entries cite `<file>` and whe
 - **Parser (deep)** — [`sql/docs/parser.md`](../../sql/docs/parser.md): build pipeline, sql_yacc.yy structure, lexer, identifier wrappers, LEX, keyword-addition recipe, shift/reduce resolution, opt_hints sub-parser, SP parsing.
 - **Optimizer (deep)** — [`sql/docs/optimizer.md`](../../sql/docs/optimizer.md): phase ordering, JOIN/JOIN_TAB/SELECT_LEX, range optimizer, subquery flattening, derived-table merging, hints, cost/statistics, EXPLAIN, "where bug categories land" table.
 - **Replication (deep)** — [`sql/docs/replication.md`](../../sql/docs/replication.md): big picture, binlog event types, master write path, slave threads, parallel applier, GTID, semi-sync, WSREP, RBR/SBR/MIXED, IS_UNSAFE classification.
+- **Stored programs (deep)** — [`sql/docs/stored-programs.md`](../../sql/docs/stored-programs.md): lifecycle, sp_head shape, opcode table, parse-time vs run-time context, parameters, cursors, triggers, cache invalidation.
+- **ACL & privileges (deep)** — [`sql/docs/acl-and-privileges.md`](../../sql/docs/acl-and-privileges.md): grant tables (incl. `mysql.global_priv`), in-memory caches, `privilege.h` bit registry, role merge timing, GRANT/REVOKE flow.
+- **Charset & collation (deep)** — [`sql/docs/charset-and-collation.md`](../../sql/docs/charset-and-collation.md): CHARSET_INFO, DTCollation derivation (9 levels), agg_arg_charsets_* helpers, padding, WEIGHT_STRING.
+
+## Cross-cutting references (.claude/reference/)
+
+- **Memory management** — [`memory-management.md`](memory-management.md): MEM_ROOT family, arena lifetimes, Query_arena swap, PS re-execution, mem_root_array, OOM behavior.
+- **Error handling** — [`error-handling.md`](error-handling.md): decision table for my_error/push_warning/sql_print/DBUG, Sql_condition, Diagnostics_area vs Warning_info, SIGNAL/RESIGNAL, OOM, format-string safety.
+- **Threading & locks** — [`threading-and-locks.md`](threading-and-locks.md): thread types, THD per-thread invariant (`thread_local`), `mysql_mutex_t` PSI wrappers, SAFE_MUTEX, atomics (4 flavours: `my_atomic_*`, `std::atomic`, `Atomic_counter`, `Atomic_relaxed`), condition variables.
+- **Debug tooling** — [`debug-tooling.md`](debug-tooling.md): DBUG macros, `--debug=` flag forms, DEBUG_SYNC, `BUILD/compile-*` scripts, mtr flags (--gdb/--rr/--valgrind), sanitizer triage workflow, gdb command table.
 
 ## Anti-patterns the reviewers will reject
 

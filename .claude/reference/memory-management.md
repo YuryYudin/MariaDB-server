@@ -181,9 +181,7 @@ To put bytes on a MEM_ROOT use `strmake_root` / `strdup_root` /
 `safe_lexcstrdup_root` ([`include/my_sys.h`](../../include/my_sys.h)) or
 `String::copy(s, len, cs, mem_root)`. Long-lived strings need MEM_ROOT
 awareness — pointing a `LEX_CSTRING` at a borrowed buffer that gets
-freed is a recurring reviewer-caught bug. See
-[`sql/docs/charset-and-collation.md`](../../sql/docs/charset-and-collation.md)
-(Phase 5) for the charset-conversion side.
+freed is a recurring reviewer-caught bug. See [`sql/docs/charset-and-collation.md`](../../sql/docs/charset-and-collation.md) for the charset-conversion side.
 
 ## 10. OOM behavior — no exceptions
 

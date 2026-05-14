@@ -239,7 +239,7 @@ Test coverage: any regression test for an UPDATE-time bug should use a **nullabl
 
 ## MEM_ROOT vs heap
 
-Quick rules (full details in `.claude/reference/memory-management.md`, Phase 5):
+Quick rules (full details in [`.claude/reference/memory-management.md`](../.claude/reference/memory-management.md)):
 
 - **`thd->mem_root`** — per-statement. Use for anything that lives only this statement (parsed tree nodes, optimizer scratch).
 - **`thd->stmt_arena->mem_root`** — per-prepared-statement / per-stored-routine instance. Use for items / structures created during the first execution that must survive re-execution. While in the prep arena, `thd->mem_root` *is* `stmt_arena->mem_root`; outside, it isn't.
@@ -279,9 +279,9 @@ Forbidden in server code: `printf`, `fprintf(stderr, …)`, `puts`, `ib::logger`
 | Item / expression bug | [`item.cc`](item.cc) `Item::fix_fields`, the specific `item_*.cc` | `Item::cleanup` / `Item::transform` | [`sql/docs/item-system.md`](docs/item-system.md) |
 | Replication change | `rpl_*.{cc,h}` and `log_event*.cc` | [`log.cc`](log.cc) commit path; binlog event format | [`sql/docs/replication.md`](docs/replication.md) |
 | Parser change | [`sql_yacc.yy`](sql_yacc.yy) (covers MariaDB *and* Oracle modes via `%ifdef`) | [`lex.h`](lex.h); regenerate via the build (`gen_lex_hash.cc` / `gen_lex_token.cc` build-time only) | [`sql/docs/parser.md`](docs/parser.md) |
-| Stored-program change | [`sp_head.cc`](sp_head.cc), [`sp_instr.cc`](sp_instr.cc), [`sp_pcontext.cc`](sp_pcontext.cc) | `sp_rcontext.cc` for runtime | `sql/docs/stored-programs.md` (Phase 5) |
-| Charset / collation issue | [`sql_string.cc`](sql_string.cc), `lex_charset.cc`, [`item_strfunc.cc`](item_strfunc.cc) | `m_ctype.h` API | `sql/docs/charset-and-collation.md` (Phase 5) |
-| ACL change | [`sql_acl.cc`](sql_acl.cc), [`grant.cc`](grant.cc) | `sql_priv.h` privilege bits | `sql/docs/acl-and-privileges.md` (Phase 5) |
+| Stored-program change | [`sp_head.cc`](sp_head.cc), [`sp_instr.cc`](sp_instr.cc), [`sp_pcontext.cc`](sp_pcontext.cc) | `sp_rcontext.cc` for runtime | [`sql/docs/stored-programs.md`](docs/stored-programs.md) |
+| Charset / collation issue | [`sql_string.cc`](sql_string.cc), `lex_charset.cc`, [`item_strfunc.cc`](item_strfunc.cc) | `m_ctype.h` API | [`sql/docs/charset-and-collation.md`](docs/charset-and-collation.md) |
+| ACL change | [`sql_acl.cc`](sql_acl.cc), [`grant.cc`](grant.cc) | `sql_priv.h` / `privilege.h` privilege bits | [`sql/docs/acl-and-privileges.md`](docs/acl-and-privileges.md) |
 | Add an MTR test | `mysql-test/CLAUDE.md` (Phase 1) | The suite under `mysql-test/suite/<name>/` or `mysql-test/main/` | `.claude/playbooks/add-mtr-test.md` (Phase 3) |
 | Fix an MDEV bug | — | — | [`.claude/skills/mfix/SKILL.md`](../.claude/skills/mfix/SKILL.md) |
 | Code-review a change | — | — | [`.claude/skills/mreview/SKILL.md`](../.claude/skills/mreview/SKILL.md) |
@@ -334,8 +334,8 @@ Most of these are restatements of single bullets from the `.claude/review/` rule
   - `.claude/reference/branches-and-forward-merges.md` (Phase 2)
   - `.claude/playbooks/add-sql-function.md`, `add-system-variable.md`, `add-error-message.md`, `add-mtr-test.md`, `forward-merge.md` (Phase 3)
   - [`sql/docs/item-system.md`](docs/item-system.md), [`optimizer.md`](docs/optimizer.md), [`replication.md`](docs/replication.md), [`parser.md`](docs/parser.md)
-  - `sql/docs/stored-programs.md`, `acl-and-privileges.md`, `charset-and-collation.md` (Phase 5)
-  - `.claude/reference/memory-management.md`, `error-handling.md`, `threading-and-locks.md`, `debug-tooling.md` (Phase 5)
+  - [`sql/docs/stored-programs.md`](docs/stored-programs.md), [`acl-and-privileges.md`](docs/acl-and-privileges.md), [`charset-and-collation.md`](docs/charset-and-collation.md)
+  - [`.claude/reference/memory-management.md`](../.claude/reference/memory-management.md), [`error-handling.md`](../.claude/reference/error-handling.md), [`threading-and-locks.md`](../.claude/reference/threading-and-locks.md), [`debug-tooling.md`](../.claude/reference/debug-tooling.md)
 
 ---
 
