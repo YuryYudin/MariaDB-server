@@ -93,6 +93,63 @@ Key shape conventions ([`testing.md`](../.claude/review/testing.md) §"Headers a
 - **`--echo # End of <maj.min> tests` footer** (one line, matching the file's existing footer style; PR4711, PR4743, PR4904). The marker matches the **target branch's** version (PR4569, PR4714).
 - **Terminate the file with a trailing newline** (PR4810, PR4829, PR4867).
 - SQL command parts UPCASE, identifiers lowercase ([`testing.md`](../.claude/review/testing.md) §"Test style").
+- **`--echo #` headers between sub-sections** of one `.test` file are the convention (see [`alter_table_debug.test`](main/alter_table_debug.test) above). Two blank `--echo` lines flank each `--echo # MDEV-NNNNN …` line.
+- **Target-branch footer is `--echo # End of <maj.min> tests`** — for `main` today that's `End of 13.0 tests` (per [`VERSION`](../VERSION)). For a fix targeted at `10.6`, use `End of 10.6 tests`. **The version must match the branch the PR targets**, not the branch you happen to be on (PR4569, PR4714).
+
+## mysqltest directive cheat-sheet
+
+A handful of directives cover ~95% of test writing. Full reference at https://mariadb.com/kb/.
+
+| Directive | Purpose | Example |
+|---|---|---|
+| `--source <file>.inc` | Include a helper. Can be inside `if`/`while`. | `--source include/have_innodb.inc` |
+| `--error <code>[,<code>]` | Expect the next SQL statement to fail with one of the listed codes. **Use the `ER_*` name, not the number** — names are stable across versions, numbers aren't. | `--error ER_DUP_ENTRY` |
+| `--echo <text>` | Write `<text>` to the `.result`. | `--echo # MDEV-12345 …` |
+| `--delimiter <chars>` | Change the statement delimiter (needed for `BEGIN … END` blocks in routines). Reset with `--delimiter ;`. | `--delimiter //` |
+| `--let $var = value` | Mysqltest variable. Use `$var` to expand inline. | `--let $tbl = t1` |
+| `--disable_query_log` / `--enable_query_log` | Suppress the SQL echo (keep result rows). | around bulk setup |
+| `--disable_result_log` / `--enable_result_log` | Suppress result rows (keep the SQL echo). | rare |
+| `--replace_regex /pat/repl/` | Rewrite the next statement's output via regex — for masking nondeterminism. | `--replace_regex /Server version: [0-9.]+/Server version: ###/` |
+| `--replace_column N str` | Replace column `N`'s value with literal `str` — same purpose, simpler. | `--replace_column 5 ###` |
+| `--sleep N` | **Do not use.** Use `--source include/wait_condition.inc` instead. Flaky CI is more expensive than the test. |
+| `--source include/wait_condition.inc` | Busy-wait until `$wait_condition` SQL returns ≥1 row. | set `$wait_condition` first |
+| `--connect (alias, host, user, pass, db, port, sock)` / `--connection alias` / `--disconnect alias` | Multi-connection tests. | `--connect (con2,localhost,root,,test)` |
+| `--write_file <path>` / `--remove_file <path>` | File-system fixtures. | within a test that touches files |
+| `--exec <shell>` | Run a shell command (use sparingly). | `--exec rm -f $MYSQLTEST_VARDIR/tmp/foo` |
+| `if (<expr>) { … }` / `while (<expr>) { … }` | Mysqltest control flow. Note: braces on their own line. | `if (`SELECT @@have_debug` = 'YES') { … }` |
+
+**Looking up `ER_*` codes:** the canonical list lives in [`../sql/share/errmsg-utf8.txt`](../sql/share/errmsg-utf8.txt) — search for the user-visible message text to find the code name. New error codes go at the **end** of the file (stable numeric ABI).
+
+## PS/SP variant skeleton
+
+Every new SQL feature needs a prepared-statement and a stored-procedure exercise — reviewers reject PRs that don't include them (PR4433, [`testing.md`](../.claude/review/testing.md) §"Cover every documented branch"). Copy-paste skeleton:
+
+```
+--echo #
+--echo # Prepared statement variant
+--echo #
+PREPARE s FROM 'SELECT BAR(?)';
+SET @x = 21;
+EXECUTE s USING @x;
+SET @x = -4.5;
+EXECUTE s USING @x;
+DEALLOCATE PREPARE s;
+
+--echo #
+--echo # Stored procedure variant
+--echo #
+--delimiter //
+CREATE PROCEDURE p_bar(IN v DECIMAL(10,2))
+BEGIN
+  SELECT BAR(v);
+END//
+--delimiter ;
+CALL p_bar(10);
+CALL p_bar(-2.5);
+DROP PROCEDURE p_bar;
+```
+
+For functions with literal-only call sites (rare), a stored-program-side `DECLARE … DEFAULT BAR(…)` also exercises the parse-time resolution path.
 
 ---
 
