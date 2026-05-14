@@ -282,8 +282,9 @@ The recurring failure modes when changing optimizer code. Cite real PRs / MDEVs.
 - [`.claude/playbooks/add-sql-function.md`](../../.claude/playbooks/add-sql-function.md) — most new SQL function work interacts with the optimizer indirectly via `Item::transform` and `Item::const_item()`.
 - [`.claude/review/correctness-and-security.md`](../../.claude/review/correctness-and-security.md) — NULL handling, lifetime / ownership.
 - [`.claude/review/testing.md`](../../.claude/review/testing.md) — PS/SP variant requirement; `--big-test` join-search coverage.
+- Related references:
+  - [`sql/docs/replication.md`](replication.md) — binlog row-image format and how it interacts with optimized DML.
 - Forward references (not yet written):
-  - `sql/docs/replication.md` (Phase 4) — binlog row-image format and how it interacts with optimized DML.
   - `.claude/reference/debug-tooling.md` (Phase 5) — `--debug=d,info` / optimizer trace / DBUG keywords for tracing optimizer decisions.
 
 ---

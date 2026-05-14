@@ -16,34 +16,35 @@ Grouped by domain. Alphabetical within each group. Entries cite `<file>` and whe
 
 - **ACL / privileges** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"ACL & privileges"; [`.claude/review/correctness-and-security.md`](../review/correctness-and-security.md) §"Auth / ACL".
 - **`ALTER TABLE`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Tables, fields, types".
-- **`Create_func` / `Create_func_arg1` / `Create_native_func`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Items (expressions)" (factory table) and "Choosing an `Item_func` base class".
+- **`Create_func` / `Create_func_arg1` / `Create_native_func`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Items (expressions)" (factory table) and "Choosing an `Item_func` base class"; [`.claude/playbooks/add-sql-function.md`](../playbooks/add-sql-function.md).
 - **`current_thd`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"THD lifecycle".
 - **`DBUG_ENTER` / `DBUG_RETURN` / `DBUG_PRINT`** — [glossary.md](glossary.md) §"DBUG"; root [`CLAUDE.md`](../../CLAUDE.md) §"Things to be aware of".
 - **`enum_sql_command`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Command dispatch & THD".
 - **error message wording** — [`.claude/review/logging-and-errors.md`](../review/logging-and-errors.md) §"Message wording"; [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"`my_error()` vs `push_warning_printf()` vs `sql_print_error()`".
 - **`errmsg-utf8.txt`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Errors & messages"; [`.claude/review/logging-and-errors.md`](../review/logging-and-errors.md) §"Error codes / errmsg-utf8.txt".
-- **`fix_fields` / `Item::fix_fields`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Prepared statements & re-execution"; §"Items (expressions)".
+- **`fix_fields` / `Item::fix_fields`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Prepared statements & re-execution"; [`sql/docs/item-system.md`](../../sql/docs/item-system.md) §"The `Item` lifecycle".
 - **`func_name()` / `get_copy()`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Prepared statements & re-execution".
 - **handlerton / handler** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Storage-engine API"; [glossary.md](glossary.md).
-- **Item / `Item_func` / `Item_int_func` / `Item_real_func`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Items (expressions)" (with base-class picker).
-- **`item_create.cc`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Items (expressions)".
-- **`JOIN::optimize` / `JOIN::exec`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Optimizer & executor"; §"Where to start".
-- **`LEX` / `LEX_STRING` / `LEX_CSTRING`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Parser & lexer"; [glossary.md](glossary.md).
+- **Item / `Item_func` / `Item_int_func` / `Item_real_func`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Items (expressions)" (base-class picker); [`sql/docs/item-system.md`](../../sql/docs/item-system.md) (deep reference: class hierarchy, lifecycle, value API, Type_handler).
+- **`Item::transform` / `walk` / `compile`** — [`sql/docs/item-system.md`](../../sql/docs/item-system.md) §"`Item::transform`, `walk`, `compile` — the visitor pattern".
+- **`item_create.cc`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Items (expressions)"; [`.claude/playbooks/add-sql-function.md`](../playbooks/add-sql-function.md) §"Register in the factory".
+- **`JOIN::optimize` / `JOIN::exec`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Optimizer & executor"; [`sql/docs/optimizer.md`](../../sql/docs/optimizer.md) §"Phase ordering" (deep reference for optimizer work).
+- **`LEX` / `LEX_STRING` / `LEX_CSTRING`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Parser & lexer"; [`sql/docs/parser.md`](../../sql/docs/parser.md) §"The `LEX` struct" and §"Identifier wrappers"; [glossary.md](glossary.md).
 - **`MEM_ROOT` / `thd->mem_root` / `stmt_arena`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"MEM_ROOT vs heap"; forward ref [`memory-management.md`](memory-management.md) (Phase 5).
 - **`my_error()` vs `push_warning_printf()` vs `sql_print_error()`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"`my_error()` vs `push_warning_printf()` vs `sql_print_error()`"; [`.claude/review/logging-and-errors.md`](../review/logging-and-errors.md).
-- **NULL handling** — [`.claude/review/correctness-and-security.md`](../review/correctness-and-security.md) §"NULL handling".
+- **NULL handling** — [`.claude/review/correctness-and-security.md`](../review/correctness-and-security.md) §"NULL handling"; [`sql/docs/item-system.md`](../../sql/docs/item-system.md) §"`null_value` and `maybe_null`".
 - **`OLD_VALUE()` / `Item_old_field`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"TABLE record buffers & paired `Field` pointers".
 - **paired pointers** (`ptr` / `ptr_old`, `null_ptr` / `null_ptr_old`) — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"TABLE record buffers & paired `Field` pointers".
-- **parser changes** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Parser & lexer"; §"Where to start"; forward ref `sql/docs/parser.md` (Phase 4).
+- **parser changes** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Parser & lexer"; [`sql/docs/parser.md`](../../sql/docs/parser.md) (deep reference: build pipeline, sql_yacc.yy structure, keyword-addition recipe, conflict resolution).
 - **plugin host / `sql_plugin.cc`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Plugin host".
-- **prepared statements / re-execution** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Prepared statements & re-execution"; [`.claude/review/testing.md`](../review/testing.md) §"Cover every documented branch".
+- **prepared statements / re-execution** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Prepared statements & re-execution"; [`sql/docs/item-system.md`](../../sql/docs/item-system.md) §"Prepared-statement re-execution"; [`.claude/review/testing.md`](../review/testing.md) §"Cover every documented branch".
 - **`PROTECT_STATEMENT_MEMROOT`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Prepared statements & re-execution".
 - **`record[0]` / `record[1]`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"TABLE record buffers & paired `Field` pointers".
 - **`RETURNING` (`UPDATE ... RETURNING`, `INSERT ... RETURNING`)** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"TABLE record buffers" (the `OLD_VALUE()` interaction).
 - **stored programs / `sp_head` / `sp_pcontext`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Stored programs"; forward ref `sql/docs/stored-programs.md` (Phase 5).
 - **`sys_vars.cc`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"System variables"; §"Where to start"; forward ref `.claude/playbooks/add-system-variable.md` (Phase 3).
 - **`THD` lifecycle** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"THD lifecycle".
-- **`Type_handler` / `sql_type.cc`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Tables, fields, types".
+- **`Type_handler` / `sql_type.cc`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Tables, fields, types"; [`sql/docs/item-system.md`](../../sql/docs/item-system.md) §"`Type_handler` — the type dispatch table".
 
 ## InnoDB (storage/innobase/)
 
@@ -88,13 +89,13 @@ Grouped by domain. Alphabetical within each group. Entries cite `<file>` and whe
 
 ## Replication
 
-- **binlog / `log_event*.cc`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Replication".
-- **GTID** — [glossary.md](glossary.md) §"Replication & WSREP"; [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Replication".
-- **parallel applier** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Replication"; [glossary.md](glossary.md).
+- **binlog / `log_event*.cc`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Replication"; [`sql/docs/replication.md`](../../sql/docs/replication.md) §"Binlog format and event types".
+- **GTID** — [glossary.md](glossary.md) §"Replication & WSREP"; [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Replication"; [`sql/docs/replication.md`](../../sql/docs/replication.md) §"GTID — global transaction ID".
+- **parallel applier** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Replication"; [`sql/docs/replication.md`](../../sql/docs/replication.md) §"Parallel applier"; [glossary.md](glossary.md).
 - **RBR / SBR / MIXED / `binlog_format`** — [glossary.md](glossary.md).
 - **replication wire format** — [`.claude/review/api-and-architecture.md`](../review/api-and-architecture.md) §"Replication / binlog wire format".
 - **semisync** — [glossary.md](glossary.md); [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Replication".
-- **WSREP / Galera / `wsrep-lib`** — [glossary.md](glossary.md); [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Replication"; [`.claude/review/innodb.md`](../review/innodb.md) §"Galera / WSREP".
+- **WSREP / Galera / `wsrep-lib`** — [glossary.md](glossary.md); [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Replication"; [`sql/docs/replication.md`](../../sql/docs/replication.md) §"WSREP / Galera"; [`.claude/review/innodb.md`](../review/innodb.md) §"Galera / WSREP".
 - **`wsrep_dummy.cc`** — [`sql/CLAUDE.md`](../../sql/CLAUDE.md) §"Replication"; [glossary.md](glossary.md).
 
 ## Memory, threading, errors
@@ -144,10 +145,22 @@ Grouped by domain. Alphabetical within each group. Entries cite `<file>` and whe
 - **rebase, don't merge** — [`.claude/review/commit-and-process.md`](../review/commit-and-process.md) §"Rebase, don't merge".
 - **security policy** — root [`CLAUDE.md`](../../CLAUDE.md) §"Working with the tree"; `SECURITY.md`.
 
-## Workflows (skills)
+## Workflows (skills + playbooks)
 
 - **bug-fix end-to-end** — [`.claude/skills/mfix/SKILL.md`](../skills/mfix/SKILL.md).
 - **code review** — [`.claude/skills/mreview/SKILL.md`](../skills/mreview/SKILL.md).
+- **add a new SQL function** — [`.claude/playbooks/add-sql-function.md`](../playbooks/add-sql-function.md).
+- **add a new system variable** — [`.claude/playbooks/add-system-variable.md`](../playbooks/add-system-variable.md).
+- **add a new error message** — [`.claude/playbooks/add-error-message.md`](../playbooks/add-error-message.md).
+- **add an MTR test** — [`.claude/playbooks/add-mtr-test.md`](../playbooks/add-mtr-test.md).
+- **forward-merge between maintained branches** — [`.claude/playbooks/forward-merge.md`](../playbooks/forward-merge.md); [`.claude/reference/branches-and-forward-merges.md`](branches-and-forward-merges.md).
+
+## Deep references (sql/docs/)
+
+- **Item system (deep)** — [`sql/docs/item-system.md`](../../sql/docs/item-system.md): class hierarchy, lifecycle, value API, Type_handler, indirect items, transform/walk/compile, prepared-statement re-execution, charset propagation, null_value vs maybe_null.
+- **Parser (deep)** — [`sql/docs/parser.md`](../../sql/docs/parser.md): build pipeline, sql_yacc.yy structure, lexer, identifier wrappers, LEX, keyword-addition recipe, shift/reduce resolution, opt_hints sub-parser, SP parsing.
+- **Optimizer (deep)** — [`sql/docs/optimizer.md`](../../sql/docs/optimizer.md): phase ordering, JOIN/JOIN_TAB/SELECT_LEX, range optimizer, subquery flattening, derived-table merging, hints, cost/statistics, EXPLAIN, "where bug categories land" table.
+- **Replication (deep)** — [`sql/docs/replication.md`](../../sql/docs/replication.md): big picture, binlog event types, master write path, slave threads, parallel applier, GTID, semi-sync, WSREP, RBR/SBR/MIXED, IS_UNSAFE classification.
 
 ## Anti-patterns the reviewers will reject
 
