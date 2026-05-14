@@ -23,7 +23,7 @@ The InnoDB tree (`ls storage/innobase/`) is organised by subsystem. Each row bel
 
 | Subdir | Purpose | Representative file |
 |---|---|---|
-| [`buf/`](buf/) | Buffer pool: page cache, LRU, flushing, doublewrite, prefetch. | [`buf/buf0buf.cc`](buf/buf0buf.cc) (29 commits / 12 months) |
+| [`buf/`](buf/) | Buffer pool: page cache, LRU, flushing, doublewrite, linear/random read-ahead (in [`buf0rea.cc`](buf/buf0rea.cc)). | [`buf/buf0buf.cc`](buf/buf0buf.cc) (29 commits / 12 months) |
 | [`fil/`](fil/) | Tablespace file management; `fil_space_t`, `fil_node_t`, AIO orchestration, encryption, page compression. | [`fil/fil0fil.cc`](fil/fil0fil.cc) (37 commits / 12 months) |
 | [`log/`](log/) | Redo log writer, recovery, log encryption, log archive (MDEV-37949). | [`log/log0recv.cc`](log/log0recv.cc) — recovery |
 | [`trx/`](trx/) | Transactions, MVCC, undo segments, purge, rollback, `INFORMATION_SCHEMA.INNODB_TRX`. | [`trx/trx0trx.cc`](trx/trx0trx.cc) |
@@ -213,7 +213,7 @@ The buffer pool is InnoDB's page cache. It is a single contiguous chunk reserved
 
 | Task | First read | Then | Reference |
 |---|---|---|---|
-| Add an InnoDB system variable | [`handler/ha_innodb.cc`](handler/ha_innodb.cc) — find a similar `static MYSQL_SYSVAR_*` and copy its shape | The per-state variable in [`srv/srv0srv.cc`](srv/srv0srv.cc) / `srv0srv.h`; sysvar test under `mysql-test/suite/sys_vars/` | `.claude/playbooks/add-system-variable.md` (Phase 3) |
+| Add an InnoDB system variable | [`handler/ha_innodb.cc`](handler/ha_innodb.cc) — clone a `static MYSQL_SYSVAR_*` (e.g. `MYSQL_SYSVAR_BOOL(stats_on_metadata, …)`) and **append it to `innobase_system_variables[]`** in the same file. Pick `PLUGIN_VAR_OPCMDARG` for a settable bool, `PLUGIN_VAR_RQCMDARG` for one requiring a value, `PLUGIN_VAR_READONLY` for `--option`-only. | Declare the backing variable in [`srv/srv0srv.cc`](srv/srv0srv.cc) + [`include/srv0srv.h`](include/srv0srv.h). Add a sysvar test as `mysql-test/suite/sys_vars/t/innodb_<name>_basic.test` (+ `.result`); the existing 90+ `innodb_*_basic.test` files are the copy template. Add a functional test under `storage/innobase/mysql-test/innodb/` exercising the new behaviour. | `.claude/playbooks/add-system-variable.md` (Phase 3) |
 | Fix a buffer-pool / I/O bug | [`buf/buf0buf.cc`](buf/buf0buf.cc), [`fil/fil0fil.cc`](fil/fil0fil.cc) | [`buf/buf0flu.cc`](buf/buf0flu.cc), [`buf/buf0lru.cc`](buf/buf0lru.cc), [`os/os0file.cc`](os/os0file.cc) | — |
 | Fix a transaction / locking bug | [`trx/trx0trx.cc`](trx/trx0trx.cc), [`lock/lock0lock.cc`](lock/lock0lock.cc) | [`read/read0read.cc`](read/read0read.cc) for the MVCC view; [`trx/trx0purge.cc`](trx/trx0purge.cc) for purge | — |
 | Change page format | [`page/page0page.cc`](page/page0page.cc), [`fsp/fsp0fsp.cc`](fsp/fsp0fsp.cc), [`include/page0types.h`](include/page0types.h), [`include/fsp0types.h`](include/fsp0types.h) | Recovery path in [`log/log0recv.cc`](log/log0recv.cc); upgrade in `mariadb-upgrade` | [`.claude/review/innodb.md`](../../.claude/review/innodb.md) §"On-disk / page format" |
@@ -245,6 +245,7 @@ Most of these are single bullets from the InnoDB rulebook; load the linked file 
 - **Don't write `std::unordered_map`-ordered data to disk or the wire.** Serialised ordering must be deterministic. PR4430.
 - **Don't reuse legacy MyISAM `mi_uintNkorr` (big-endian) in InnoDB code.** InnoDB uses `mach_read_from_*` / `mach_write_to_*` from [`include/mach0data.h`](include/mach0data.h). PR4783, PR4797.
 - **Don't add a `dict_sys` latch around the whole transaction commit.** Latch `dict_sys` only for the SQL parser invocation; use `lock_sys_tables(trx)` for the commit. PR4884.
+- **Sysvar wiring is easy to half-do.** Three places must agree: the `MYSQL_SYSVAR_*` macro in [`ha_innodb.cc`](handler/ha_innodb.cc), the append to `innobase_system_variables[]` (right below), and the backing variable in `srv0srv.cc` + `srv0srv.h`. Missing any of the three means the variable either isn't visible, isn't settable, or doesn't actually affect anything. Pick the right `PLUGIN_VAR_*` flag (`READONLY` for `--option-only`, `OPCMDARG` for runtime-settable bool, `RQCMDARG` when a value is required). A missing `update` callback is the usual reason `SET GLOBAL` "succeeds" but does nothing.
 
 ---
 
