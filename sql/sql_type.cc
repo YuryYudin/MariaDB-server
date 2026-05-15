@@ -820,7 +820,17 @@ bool Time::to_native(Native *to, uint decimals) const
   uint len= my_time_binary_length(decimals);
   if (to->reserve(len))
     return true;
-  longlong tmp= TIME_to_longlong_time_packed(get_mysql_time());
+  /*
+    Truncate the unpacked MYSQL_TIME to the declared precision before packing,
+    mirroring Type_handler_timestamp_common::TIME_to_native(). Callers may
+    build a Time from an Item whose MYSQL_TIME carries more fractional digits
+    than the requested 'decimals'; my_time_packed_to_binary() asserts that
+    the packed value is already truncated, so without this step the assertion
+    can fire on otherwise-valid inputs.
+  */
+  MYSQL_TIME ltime= *get_mysql_time();
+  my_time_trunc(&ltime, decimals);
+  longlong tmp= TIME_to_longlong_time_packed(&ltime);
   my_time_packed_to_binary(tmp, (uchar*) to->ptr(), decimals);
   to->length(len);
   return false;
