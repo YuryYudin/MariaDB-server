@@ -2363,7 +2363,7 @@ bool Item_func_int_val::native_op(THD *thd, Native *to)
 {
   // TODO: turn Item_func_int_val into Item_handled_func eventually.
   if (type_handler()->mysql_timestamp_type() == MYSQL_TIMESTAMP_TIME)
-    return Time(thd, this).to_native(to, decimals);
+    return Time(thd, this, Time::Options(thd), decimals).to_native(to, decimals);
   DBUG_ASSERT(0);
   return true;
 }
@@ -2820,7 +2820,7 @@ bool Item_func_round::native_op(THD *thd, Native *to)
 {
   // TODO: turn Item_func_round into Item_handled_func eventually.
   if (type_handler()->mysql_timestamp_type() == MYSQL_TIMESTAMP_TIME)
-    return Time(thd, this).to_native(to, decimals);
+    return Time(thd, this, Time::Options(thd), decimals).to_native(to, decimals);
   DBUG_ASSERT(0);
   return true;
 }

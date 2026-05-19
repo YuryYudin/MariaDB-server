@@ -728,7 +728,7 @@ public:
   my_decimal *val_decimal(my_decimal *to) override
   { return Time(this).to_decimal(to); }
   bool val_native(THD *thd, Native *to) override
-  { return Time(thd, this).to_native(to, decimals); }
+  { return Time(thd, this, Time::Options(thd), decimals).to_native(to, decimals); }
 };
 
 
