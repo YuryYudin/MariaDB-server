@@ -9265,7 +9265,8 @@ Type_handler_time_common::Item_val_native_with_conversion(THD *thd,
   if (item->type_handler()->type_handler_for_native_format() ==
       &type_handler_time2)
     return item->val_native(thd, to);
-  return Time(thd, item).to_native(to, item->time_precision(thd));
+  const uint dec= item->time_precision(thd);
+  return Time(thd, item).trunc(dec).to_native(to, dec);
 }
 
 
@@ -9282,7 +9283,8 @@ Type_handler_time_common::Item_val_native_with_conversion_result(THD *thd,
   if (item->get_date_result(thd, &ltime, Time::Options(thd)))
     return true;
   int warn;
-  return Time(&warn, &ltime, 0).to_native(to, item->time_precision(thd));
+  const uint dec= item->time_precision(thd);
+  return Time(&warn, &ltime, 0).trunc(dec).to_native(to, dec);
 }
 
 
@@ -9424,7 +9426,8 @@ Type_handler_time_common::Item_param_val_native(THD *thd,
                                                 Item_param *item,
                                                 Native *to) const
 {
-  return Time(thd, item).to_native(to, item->decimals);
+  const uint dec= item->decimals;
+  return Time(thd, item).trunc(dec).to_native(to, dec);
 }
 
 
